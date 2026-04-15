@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  DEEZER
+  TIDAL
+}
+
+enum ReleaseType {
+  ALBUM
+  SINGLE
+  EP
+  COMPILATION
+  LIVE
+  REISSUE
+  REMASTER
+  UNKNOWN
+}
+
+enum JobKind {
+  SYNC_ALL_ARTISTS
+  SYNC_FOLLOWED_ARTIST
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  email              String              @unique
+  name               String
+  passwordHash       String
+  timezone           String              @default("UTC")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  settings           UserSettings?
+  deezerConnection   DeezerConnection?
+  lastfmConnection   LastfmConnection?
+  follows            UserFollow[]
+  calendarToken      CalendarToken?
+  discoveries        DiscoveryEvent[]
+  ignoredReleases    IgnoredRelease[]
+  notificationEvents NotificationEvent[]
+  syncJobs           SyncJob[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserSettings {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  includeSingles       Boolean  @default(true)
+  includeEps           Boolean  @default(true)
+  includeCompilations  Boolean  @default(false)
+  includeLive          Boolean  @default(false)
+  includeReissues      Boolean  @default(false)
+  hideIgnored          Boolean  @default(true)
+  futureHorizonDays    Int      @default(180)
+  discoveryWindowDays  Int      @default(30)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CalendarToken {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  token         String   @unique
+  createdAt     DateTime @default(now())
+  lastRotatedAt DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DeezerConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  deezerUserId   String   @unique
+  deezerUserName String?
+  accessToken    String
+  expiresAt      DateTime?
+  lastImportedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LastfmConnection {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  lastfmUserName  String
+  lastImportedAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Artist {
+  id             String                @id @default(cuid())
+  canonicalName  String
+  normalizedName String
+  imageUrl       String?
+  deezerFans     Int?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  mappings       ArtistProviderMapping[]
+  followers      UserFollow[]
+  releaseArtists ReleaseArtist[]
+  syncJobs       SyncJob[]
+  discoveries    DiscoveryEvent[]
+
+  @@index([normalizedName])
+}
+
+model ArtistProviderMapping {
+  id               String   @id @default(cuid())
+  artistId         String
+  provider         Provider
+  providerArtistId String
+  url              String?
+  rawJson          Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  artist           Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerArtistId])
+  @@index([artistId])
+}
+
+model UserFollow {
+  userId       String
+  artistId     String
+  createdAt    DateTime @default(now())
+  lastSyncedAt DateTime?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artist       Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([userId, artistId])
+  @@index([artistId])
+}
+
+model Release {
+  id               String                   @id @default(cuid())
+  title            String
+  normalizedTitle  String
+  releaseDate      DateTime
+  type             ReleaseType              @default(UNKNOWN)
+  coverUrl         String?
+  deezerUrl        String?
+  tidalUrl         String?
+  confidence       Float                    @default(1)
+  rawSource        Json?
+  firstDiscoveredAt DateTime                @default(now())
+  lastSeenAt       DateTime                 @default(now())
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  mappings         ReleaseProviderMapping[]
+  artists          ReleaseArtist[]
+  discoveries      DiscoveryEvent[]
+  ignoredBy        IgnoredRelease[]
+  notifications    NotificationEvent[]
+
+  @@index([releaseDate])
+  @@index([firstDiscoveredAt])
+  @@index([type])
+}
+
+model ReleaseProviderMapping {
+  id                String   @id @default(cuid())
+  releaseId         String
+  provider          Provider
+  providerReleaseId String
+  url               String?
+  rawJson           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  release           Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerReleaseId])
+  @@index([releaseId])
+}
+
+model ReleaseArtist {
+  releaseId String
+  artistId  String
+  role      String   @default("primary")
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+
+  @@id([releaseId, artistId])
+  @@index([artistId])
+}
+
+model DiscoveryEvent {
+  id           String   @id @default(cuid())
+  userId       String
+  releaseId    String
+  artistId     String?
+  reason       String
+  discoveredAt DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release      Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  artist       Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, releaseId])
+  @@index([userId, discoveredAt])
+}
+
+model IgnoredRelease {
+  userId     String
+  releaseId  String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@id([userId, releaseId])
+}
+
+model NotificationEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  releaseId  String
+  kind       String
+  status     String   @default("pending")
+  payload    Json?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@unique([userId, releaseId, kind])
+}
+
+model SyncJob {
+  id         String    @id @default(cuid())
+  kind       JobKind
+  status     JobStatus @default(PENDING)
+  userId     String?
+  artistId   String?
+  message    String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  artist     Artist?   @relation(fields: [artistId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
