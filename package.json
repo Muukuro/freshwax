@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:worker": "tsx src/worker.ts",
+    "dev:worker": "tsx watch src/worker.ts",
+    "dev:all": "concurrently -k -n app,worker -c blue,yellow \"npm:dev\" \"npm:dev:worker\"",
     "build": "next build",
     "start": "next start",
     "start:worker": "tsx src/worker.ts",
@@ -33,6 +34,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "prisma": "^6.7.0",

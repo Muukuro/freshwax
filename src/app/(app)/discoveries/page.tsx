@@ -6,6 +6,7 @@ import { getDiscoveredReleases } from "@/lib/data";
 export default async function DiscoveriesPage() {
   const user = await requireUser();
   const releases = await getDiscoveredReleases(user.id);
+  const singlesHidden = user.settings?.includeSingles === false;
 
   return (
     <div className="space-y-4">
@@ -13,6 +14,11 @@ export default async function DiscoveriesPage() {
         <div>
           <p className="eyebrow">Missed recently</p>
           <h2 className="text-3xl font-semibold text-[var(--text)]">Recent releases that surfaced after the fact</h2>
+          {singlesHidden ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Singles are hidden right now, so this feed only shows full-length releases and any other enabled types.
+            </p>
+          ) : null}
         </div>
       </div>
 

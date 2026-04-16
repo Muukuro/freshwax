@@ -1,10 +1,11 @@
 import { type Release } from "@prisma/client";
-import { CalendarDays, ExternalLink, EyeOff, Music4 } from "lucide-react";
+import { CalendarDays, EyeOff, Music4 } from "lucide-react";
 
 import {
   ignoreReleaseAction,
   unignoreReleaseAction,
 } from "@/app/actions/follows";
+import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { releaseDateLabel, releaseTypeLabel } from "@/lib/utils";
 
@@ -38,7 +39,7 @@ export function ReleaseCard({
               <h3 className="mt-1 text-xl font-semibold text-[var(--text)]">{release.title}</h3>
               <p className="text-sm text-[var(--muted)]">{artistNames}</p>
             </div>
-            <div className="rounded-full border border-[rgba(18,36,56,0.1)] bg-[rgba(255,255,255,0.7)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+            <div className="rounded-full border border-[var(--date-chip-border)] bg-[var(--date-chip-bg)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
               {releaseDateLabel(release.releaseDate)}
             </div>
           </div>
@@ -58,16 +59,10 @@ export function ReleaseCard({
 
           <div className="flex flex-wrap gap-3">
             {release.deezerUrl ? (
-              <a className="ghost-button" href={release.deezerUrl} target="_blank" rel="noreferrer">
-                Deezer
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              <PlatformLink className="ghost-button" href={release.deezerUrl} label="Deezer" />
             ) : null}
             {release.tidalUrl ? (
-              <a className="ghost-button" href={release.tidalUrl} target="_blank" rel="noreferrer">
-                TIDAL
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              <PlatformLink className="ghost-button" href={release.tidalUrl} label="TIDAL" />
             ) : null}
 
             <form action={ignored ? unignoreReleaseAction : ignoreReleaseAction}>

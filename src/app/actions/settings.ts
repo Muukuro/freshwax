@@ -6,6 +6,16 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+function parseLastfmImportMinPlaycount(value: FormDataEntryValue | null) {
+  const parsed = Number(value ?? 10);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    throw new Error("Last.fm minimum listens must be at least 1");
+  }
+
+  return Math.floor(parsed);
+}
+
 export async function updateSettingsAction(formData: FormData) {
   const user = await requireUser();
 
@@ -79,6 +89,7 @@ export async function disconnectDeezerAction() {
 export async function saveLastfmUsernameAction(formData: FormData) {
   const user = await requireUser();
   const lastfmUserName = String(formData.get("lastfmUserName") ?? "").trim();
+  const importMinPlaycount = parseLastfmImportMinPlaycount(formData.get("importMinPlaycount"));
 
   if (!lastfmUserName) {
     throw new Error("Enter a Last.fm username");
@@ -88,10 +99,12 @@ export async function saveLastfmUsernameAction(formData: FormData) {
     where: { userId: user.id },
     update: {
       lastfmUserName,
+      importMinPlaycount,
     },
     create: {
       userId: user.id,
       lastfmUserName,
+      importMinPlaycount,
     },
   });
 

@@ -31,7 +31,16 @@ export async function enqueueArtistSync(artistId: string) {
   await getArtistSyncQueue().add(
     "sync-followed-artist",
     { artistId },
-    { jobId: `artist-${artistId}`, removeOnComplete: 100, removeOnFail: 200 },
+    {
+      jobId: `artist-${artistId}`,
+      attempts: env.DEEZER_RATE_LIMIT_RETRIES + 1,
+      backoff: {
+        type: "exponential",
+        delay: env.DEEZER_RATE_LIMIT_BASE_DELAY_MS,
+      },
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    },
   );
 }
 
@@ -39,7 +48,16 @@ export async function enqueueGlobalSync() {
   await getArtistSyncQueue().add(
     "sync-all-artists",
     {},
-    { jobId: "sync-all", removeOnComplete: 100, removeOnFail: 200 },
+    {
+      jobId: "sync-all",
+      attempts: env.DEEZER_RATE_LIMIT_RETRIES + 1,
+      backoff: {
+        type: "exponential",
+        delay: env.DEEZER_RATE_LIMIT_BASE_DELAY_MS,
+      },
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    },
   );
 }
 
@@ -53,6 +71,11 @@ export async function ensureRecurringSync() {
       name: "sync-all-artists",
       data: {},
       opts: {
+        attempts: env.DEEZER_RATE_LIMIT_RETRIES + 1,
+        backoff: {
+          type: "exponential",
+          delay: env.DEEZER_RATE_LIMIT_BASE_DELAY_MS,
+        },
         removeOnComplete: 100,
         removeOnFail: 200,
       },

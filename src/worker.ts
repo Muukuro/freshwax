@@ -2,7 +2,9 @@ import { JobStatus } from "@prisma/client";
 import { QueueEvents, Worker } from "bullmq";
 
 import { prisma } from "@/lib/db";
+import { env } from "@/lib/env";
 import { ensureRecurringSync, getQueueConnection } from "@/lib/queue";
+import { DeezerRateLimitError } from "@/lib/providers/deezer";
 import { syncAllArtists, syncArtist } from "@/lib/sync";
 
 async function main() {
@@ -13,6 +15,11 @@ async function main() {
   });
   queueEvents.on("failed", async ({ jobId, failedReason }) => {
     console.error(`Job ${jobId} failed: ${failedReason}`);
+  });
+  queueEvents.on("waiting", ({ jobId }) => {
+    if (jobId) {
+      console.log(`Queued job ${jobId} for another sync attempt`);
+    }
   });
 
   const worker = new Worker(
@@ -57,7 +64,7 @@ async function main() {
     },
     {
       connection: getQueueConnection(),
-      concurrency: 2,
+      concurrency: env.ARTIST_SYNC_CONCURRENCY,
     },
   );
 
@@ -66,6 +73,13 @@ async function main() {
   });
 
   worker.on("failed", (job, error) => {
+    if (error instanceof DeezerRateLimitError) {
+      console.warn(
+        `Rate limited while processing job ${job?.id} (${job?.name}); retrying after cooldown`,
+      );
+      return;
+    }
+
     console.error(`Failed job ${job?.id} (${job?.name}):`, error);
   });
 }

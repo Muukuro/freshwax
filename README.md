@@ -6,7 +6,7 @@ Freshwax is a self-hosted music release tracker with a Deezer-first catalog, Las
 
 - Local signup/signin with persistent sessions.
 - Artist search against Deezer and per-user follow lists.
-- Optional Last.fm username import to seed a watchlist from a user's top artists.
+- Optional Last.fm username import to seed a watchlist from artists above a per-user minimum listen threshold.
 - Optional Deezer account linking to import the artists a user already follows there when existing OAuth credentials are available.
 - Upcoming releases dashboard and a missed-recently feed for releases that surfaced after you started tracking an artist.
 - Private `.ics` calendar feed per user.
@@ -59,26 +59,30 @@ Then in another shell:
 npm install
 npx prisma generate
 npx prisma db push
-npm run dev
+npm run dev:all
 ```
 
-And in a third shell:
+This starts the Next.js app in HMR mode and the BullMQ worker in watch mode. If you only need one side, the individual commands are still available:
 
 ```bash
+npm run dev
 npm run dev:worker
 ```
 
 ## Environment variables
 
 - `DATABASE_URL`: PostgreSQL connection string.
-- `REDIS_URL`: Redis connection string for BullMQ.
+- `REDIS_URL`: Redis connection string for BullMQ. For host-local development against the Compose Redis service, use `redis://localhost:6380`. Compose services override this internally to `redis://redis:6379`.
 - `APP_URL`: Base URL used in calendar links.
 - `LASTFM_API_KEY`: Last.fm API key for username-based artist imports.
 - `DEEZER_APP_ID`: Deezer application id for optional account linking and library import.
 - `DEEZER_APP_SECRET`: Deezer application secret for optional account linking and library import.
+- `DEEZER_RATE_LIMIT_RETRIES`: Number of Deezer quota-limit retries before a request or sync job is allowed to fail.
+- `DEEZER_RATE_LIMIT_BASE_DELAY_MS`: Base cooldown in milliseconds used for exponential Deezer retry backoff.
 - `SESSION_COOKIE_NAME`: Name of the auth cookie.
 - `SESSION_TTL_DAYS`: Session duration.
 - `SYNC_INTERVAL_MINUTES`: Repeat interval for full background sync scheduling.
+- `ARTIST_SYNC_CONCURRENCY`: Number of artist sync jobs the worker should process in parallel. Keep this low to avoid Deezer quota bursts.
 - `DEFAULT_TIMEZONE`: Default timezone for new users.
 
 ## Deployment notes
@@ -92,8 +96,9 @@ npm run dev:worker
 ## Assumptions and limitations
 
 - Deezer is used live for artist search and release metadata.
-- Last.fm import is public-read only and resolves top artist names into Deezer artist matches.
+- Last.fm import is public-read only and resolves artist names above a per-user minimum listen threshold into Deezer artist matches.
 - Deezer account import is optional and requires an existing Deezer app whose callback URL points to `/api/deezer/callback`.
+- Deezer quota-limit responses are retried with exponential backoff and artist syncs default to single-job concurrency so large imports can drain instead of failing immediately.
 - TIDAL enrichment is implemented as generated search URLs, not authenticated API synchronization.
 - Deezer write-back actions such as following albums inside a user account are not implemented because the current integration only relies on stable read-side behavior.
 - Last.fm imports intentionally skip artists that do not produce an exact normalized Deezer name match.

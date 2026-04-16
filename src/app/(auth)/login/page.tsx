@@ -1,7 +1,18 @@
 import { AuthCard } from "@/components/auth-card";
 import { signIn } from "@/app/actions/auth";
 
-export default function LoginPage() {
+const LOGIN_ERRORS: Record<string, string> = {
+  credentials: "The email or password is incorrect.",
+  invalid: "Enter a valid email address and a password with at least 8 characters.",
+};
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
+
   return (
     <main className="auth-page">
       <div className="auth-grid">
@@ -33,9 +44,12 @@ export default function LoginPage() {
         <AuthCard
           action={signIn}
           ctaLabel="Sign in"
+          emailAutoComplete="username"
+          error={params.error ? LOGIN_ERRORS[params.error] : undefined}
           footerHref="/signup"
           footerLabel="Create an account"
           footerText="No account yet?"
+          passwordAutoComplete="current-password"
           subtitle="Track release schedules with a private dashboard, background sync jobs, and a calendar feed that works in any calendar app."
           title="Welcome back"
         />

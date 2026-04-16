@@ -6,6 +6,7 @@ import { getUpcomingReleases } from "@/lib/data";
 export default async function UpcomingPage() {
   const user = await requireUser();
   const releases = await getUpcomingReleases(user.id);
+  const singlesHidden = user.settings?.includeSingles === false;
 
   return (
     <div className="space-y-4">
@@ -13,6 +14,11 @@ export default async function UpcomingPage() {
         <div>
           <p className="eyebrow">Upcoming releases</p>
           <h2 className="text-3xl font-semibold text-[var(--text)]">Calendar-first release timeline</h2>
+          {singlesHidden ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Singles are hidden right now, so this timeline stays focused on full-length releases.
+            </p>
+          ) : null}
         </div>
       </div>
 

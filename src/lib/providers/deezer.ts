@@ -15,8 +15,10 @@ type DeezerAlbum = {
   id: number;
   title: string;
   link: string;
+  cover?: string;
   cover_medium?: string;
   cover_xl?: string;
+  md5_image?: string;
   release_date: string;
   record_type?: string;
 };
@@ -35,6 +37,40 @@ type PaginatedResponse<T> = {
 const DEEZER_API = "https://api.deezer.com";
 const DEEZER_CONNECT = "https://connect.deezer.com";
 const DEEZER_PERMISSIONS = ["basic_access", "manage_library", "offline_access"];
+const DEEZER_MAX_BACKOFF_MS = 5 * 60 * 1000;
+
+export class DeezerRateLimitError extends Error {
+  retryAfterMs: number;
+
+  constructor(message: string, retryAfterMs: number) {
+    super(message);
+    this.name = "DeezerRateLimitError";
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isQuotaErrorMessage(message?: string | null) {
+  if (!message) return false;
+
+  const normalizedMessage = message.toLowerCase();
+  return (
+    normalizedMessage.includes("quota limit exceeded") ||
+    normalizedMessage.includes("quota exceeded") ||
+    normalizedMessage.includes("too many requests") ||
+    normalizedMessage.includes("rate limit")
+  );
+}
+
+function calculateRetryDelayMs(attempt: number) {
+  return Math.min(
+    env.DEEZER_RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt,
+    DEEZER_MAX_BACKOFF_MS,
+  );
+}
 
 async function deezerFetch<T>(
   url: string,
@@ -50,27 +86,63 @@ async function deezerFetch<T>(
     requestUrl.searchParams.set("access_token", options.accessToken);
   }
 
-  const response = await fetch(requestUrl, {
-    cache: options?.cache,
-    next: options?.nextRevalidate ? { revalidate: options.nextRevalidate } : undefined,
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(requestUrl, {
+      cache: options?.cache,
+      next: options?.nextRevalidate ? { revalidate: options.nextRevalidate } : undefined,
+      headers: {
+        Accept: "application/json",
+      },
+    });
 
-  if (!response.ok) {
-    throw new Error(`Deezer request failed with ${response.status}`);
+    const responseText = await response.text();
+    let payload: (T & { error?: { message?: string } }) | null = null;
+
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText) as T & {
+          error?: { message?: string };
+        };
+      } catch {
+        payload = null;
+      }
+    }
+
+    const errorMessage =
+      payload && typeof payload === "object" && "error" in payload && payload.error
+        ? payload.error.message ?? null
+        : null;
+    const isRateLimited = response.status === 429 || isQuotaErrorMessage(errorMessage);
+
+    if (isRateLimited) {
+      const retryDelayMs = calculateRetryDelayMs(attempt);
+      const error = new DeezerRateLimitError(
+        errorMessage ?? "Deezer quota limit exceeded",
+        retryDelayMs,
+      );
+
+      if (attempt >= env.DEEZER_RATE_LIMIT_RETRIES) {
+        throw error;
+      }
+
+      await sleep(retryDelayMs);
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Deezer request failed with ${response.status}`);
+    }
+
+    if (!payload) {
+      throw new Error("Deezer API returned a non-JSON response");
+    }
+
+    if (payload && typeof payload === "object" && "error" in payload && payload.error) {
+      throw new Error(payload.error.message ?? "Deezer API error");
+    }
+
+    return payload as T;
   }
-
-  const payload = (await response.json()) as T & {
-    error?: { message?: string };
-  };
-
-  if (payload && typeof payload === "object" && "error" in payload && payload.error) {
-    throw new Error(payload.error.message ?? "Deezer API error");
-  }
-
-  return payload as T;
 }
 
 function mapArtist(artist: DeezerArtist) {
@@ -82,6 +154,15 @@ function mapArtist(artist: DeezerArtist) {
     deezerFans: artist.nb_fan ?? null,
     raw: artist,
   };
+}
+
+function buildDeezerCoverUrl(album: DeezerAlbum) {
+  if (album.cover_xl) return album.cover_xl;
+  if (album.cover_medium) return album.cover_medium;
+  if (album.cover) return album.cover;
+  if (!album.md5_image) return null;
+
+  return `https://cdn-images.dzcdn.net/images/cover/${album.md5_image}/1000x1000-000000-80-0-0.jpg`;
 }
 
 export function getDeezerOAuthCallbackUrl() {
@@ -235,7 +316,7 @@ export async function fetchArtistReleases(providerArtistId: string) {
     providerReleaseId: String(release.id),
     title: release.title,
     deezerUrl: release.link,
-    coverUrl: release.cover_xl ?? release.cover_medium ?? null,
+    coverUrl: buildDeezerCoverUrl(release),
     releaseDate: release.release_date,
     recordType: release.record_type ?? null,
     raw: release,

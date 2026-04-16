@@ -99,7 +99,11 @@ export async function importLastfmArtistsAction() {
     throw new Error("Save your Last.fm username before importing artists");
   }
 
-  await importLastfmTopArtistsForUser(user.id, connection.lastfmUserName);
+  await importLastfmTopArtistsForUser(
+    user.id,
+    connection.lastfmUserName,
+    connection.importMinPlaycount,
+  );
 
   await prisma.lastfmConnection.update({
     where: { userId: user.id },

@@ -67,13 +67,16 @@ export default async function SettingsPage({
           </label>
           <div className="field gap-3">
             <span>Release types</span>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Turn off singles to keep upcoming and discovery feeds focused on full-length releases.
+            </p>
             <label className="check">
               <input
                 defaultChecked={user.settings?.includeSingles ?? true}
                 name="includeSingles"
                 type="checkbox"
               />
-              Singles
+              Include singles
             </label>
             <label className="check">
               <input
@@ -81,7 +84,7 @@ export default async function SettingsPage({
                 name="includeEps"
                 type="checkbox"
               />
-              EPs
+              Include EPs
             </label>
             <label className="check">
               <input
@@ -89,7 +92,7 @@ export default async function SettingsPage({
                 name="includeCompilations"
                 type="checkbox"
               />
-              Compilations
+              Include compilations
             </label>
             <label className="check">
               <input
@@ -97,7 +100,7 @@ export default async function SettingsPage({
                 name="includeLive"
                 type="checkbox"
               />
-              Live releases
+              Include live releases
             </label>
             <label className="check">
               <input
@@ -105,7 +108,7 @@ export default async function SettingsPage({
                 name="includeReissues"
                 type="checkbox"
               />
-              Reissues and remasters
+              Include reissues and remasters
             </label>
             <label className="check">
               <input
@@ -113,7 +116,7 @@ export default async function SettingsPage({
                 name="hideIgnored"
                 type="checkbox"
               />
-              Hide ignored items
+              Hide ignored items from feeds and calendar
             </label>
           </div>
 
@@ -137,10 +140,13 @@ export default async function SettingsPage({
 
         <article className="panel">
           <p className="eyebrow">Last.fm</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Import your top artists</h2>
+          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">
+            Import artists above your listen threshold
+          </h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Save a public Last.fm username and import the artists you listen to most. The importer
-            only auto-follows artists that resolve to an exact normalized Deezer name match.
+            Save a public Last.fm username and a minimum listen count. The importer only auto-follows
+            artists whose Last.fm playcount meets that threshold and resolve to an exact normalized
+            Deezer name match.
           </p>
 
           <form action={saveLastfmUsernameAction} className="mt-6 space-y-4">
@@ -153,11 +159,20 @@ export default async function SettingsPage({
                 type="text"
               />
             </label>
+            <label className="field">
+              <span>Minimum listens to import</span>
+              <input
+                defaultValue={user.lastfmConnection?.importMinPlaycount ?? 10}
+                min="1"
+                name="importMinPlaycount"
+                type="number"
+              />
+            </label>
             <SubmitButton
               className={`primary-button ${lastfmConfigured ? "" : "pointer-events-none opacity-60"}`}
               pendingLabel="Saving..."
             >
-              Save Last.fm username
+              Save Last.fm settings
             </SubmitButton>
           </form>
 
@@ -168,7 +183,11 @@ export default async function SettingsPage({
                 <span className="font-medium text-[var(--text)]">
                   {user.lastfmConnection.lastfmUserName}
                 </span>
-                . Last imported{" "}
+                . Importing artists with at least{" "}
+                <span className="font-medium text-[var(--text)]">
+                  {user.lastfmConnection.importMinPlaycount}
+                </span>{" "}
+                listens. Last imported{" "}
                 {user.lastfmConnection.lastImportedAt
                   ? user.lastfmConnection.lastImportedAt.toLocaleString()
                   : "never"}

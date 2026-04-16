@@ -66,34 +66,42 @@ async function lastfmFetch<T>(params: Record<string, string>) {
   return payload as T;
 }
 
-export async function fetchUserTopArtists(username: string, limit = 250) {
+export async function fetchUserTopArtists(username: string, minimumPlaycount = 10) {
   const artists: LastfmTopArtist[] = [];
   const perPage = 200;
-  const maxPages = Math.max(1, Math.ceil(limit / perPage));
+  let totalPages = 1;
 
-  for (let page = 1; page <= maxPages; page += 1) {
+  for (let page = 1; page <= totalPages; page += 1) {
     const payload = await lastfmFetch<LastfmTopArtistsResponse>({
       method: "user.gettopartists",
       user: username,
-      limit: String(Math.min(perPage, limit - artists.length)),
+      limit: String(perPage),
       page: String(page),
       period: "overall",
     });
 
     const pageArtists = payload.topartists?.artist ?? [];
-    artists.push(...pageArtists);
+    totalPages = Number(payload.topartists?.["@attr"]?.totalPages ?? page);
 
     if (pageArtists.length === 0) {
       break;
     }
 
-    const totalPages = Number(payload.topartists?.["@attr"]?.totalPages ?? page);
-    if (page >= totalPages || artists.length >= limit) {
+    const matchingArtists = pageArtists.filter((artist) => {
+      if (minimumPlaycount <= 0) return true;
+
+      return Number(artist.playcount ?? 0) >= minimumPlaycount;
+    });
+
+    artists.push(...matchingArtists);
+
+    const hitThreshold = matchingArtists.length < pageArtists.length;
+    if (hitThreshold || page >= totalPages) {
       break;
     }
   }
 
-  return artists.slice(0, limit).map((artist) => ({
+  return artists.map((artist) => ({
     name: artist.name,
     playcount: artist.playcount ? Number(artist.playcount) : null,
     mbid: artist.mbid ?? null,

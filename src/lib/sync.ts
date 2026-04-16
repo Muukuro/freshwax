@@ -170,8 +170,12 @@ async function resolveArtistSearchResultByName(name: string) {
   return exactMatch;
 }
 
-export async function importLastfmTopArtistsForUser(userId: string, username: string) {
-  const artists = await fetchUserTopArtists(username, 50);
+export async function importLastfmTopArtistsForUser(
+  userId: string,
+  username: string,
+  minimumPlaycount: number,
+) {
+  const artists = await fetchUserTopArtists(username, minimumPlaycount);
   const uniqueArtists = artists.filter((artist, index, entries) => {
     const normalizedName = normalizeName(artist.name);
     if (!normalizedName) return false;

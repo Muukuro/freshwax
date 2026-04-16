@@ -1,17 +1,26 @@
-import { Link2, Search, UserMinus } from "lucide-react";
+import { Headphones, Link2, Search } from "lucide-react";
 
 import {
   followArtistAction,
   importDeezerFollowsAction,
   importLastfmArtistsAction,
-  unfollowArtistAction,
 } from "@/app/actions/follows";
+import { ArtistWatchlist } from "@/components/artist-watchlist";
 import { EmptyState } from "@/components/empty-state";
+import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
 import { getFollowedArtists } from "@/lib/data";
 import { isDeezerOAuthConfigured, searchArtists } from "@/lib/providers/deezer";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
+
+function initialsForArtist(name: string) {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export default async function ArtistsPage({
   searchParams,
@@ -34,7 +43,7 @@ export default async function ArtistsPage({
   );
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+    <div className="space-y-8">
       <section className="space-y-4">
         <div className="section-heading">
           <div>
@@ -143,40 +152,60 @@ export default async function ArtistsPage({
               body="Try a different spelling or a more specific artist name."
             />
           ) : (
-            results.map((artist) => (
-              <article key={artist.providerArtistId} className="panel flex items-center gap-4">
-                <div
-                  className="release-art h-16 w-16 rounded-[1.2rem] bg-cover bg-center"
-                  style={
-                    artist.imageUrl
-                      ? { backgroundImage: `url(${artist.imageUrl})` }
-                      : {
-                          background:
-                            "linear-gradient(135deg, rgba(45,109,246,0.22), rgba(15,28,43,0.08))",
-                        }
-                  }
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold text-[var(--text)]">{artist.name}</h3>
-                  <p className="text-sm text-[var(--muted)]">
-                    {artist.deezerFans?.toLocaleString() ?? "Unknown"} Deezer listeners
-                  </p>
-                </div>
-                {followedProviderIds.has(artist.providerArtistId) ? (
-                  <span className="rounded-full border border-emerald-700/18 bg-emerald-100 px-3 py-2 text-sm font-medium text-emerald-800">
-                    Following
-                  </span>
-                ) : (
-                  <form action={followArtistAction}>
-                    <input name="providerArtistId" type="hidden" value={artist.providerArtistId} />
-                    <input name="query" type="hidden" value={query} />
-                    <SubmitButton className="primary-button" pendingLabel="Adding...">
-                      Follow
-                    </SubmitButton>
-                  </form>
-                )}
-              </article>
-            ))
+            <div className="grid gap-3 xl:grid-cols-2">
+              {results.map((artist) => (
+                <article
+                  key={artist.providerArtistId}
+                  className="panel flex items-center gap-4 px-4 py-4"
+                >
+                  <div
+                    className="release-art flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
+                    style={
+                      artist.imageUrl
+                        ? { backgroundImage: `url(${artist.imageUrl})` }
+                        : {
+                            background:
+                              "linear-gradient(135deg, rgba(45,109,246,0.22), rgba(15,28,43,0.08))",
+                          }
+                    }
+                  >
+                    {artist.imageUrl ? null : initialsForArtist(artist.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-base font-semibold text-[var(--text)]">
+                      {artist.name}
+                    </h3>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                      <span className="status-pill px-2 py-1">
+                        <Headphones className="h-3.5 w-3.5" />
+                        {artist.deezerFans?.toLocaleString() ?? "Unknown"} Deezer listeners
+                      </span>
+                      {artist.deezerUrl ? (
+                        <PlatformLink
+                          className="text-[var(--muted)] hover:text-[var(--text)]"
+                          compact
+                          href={artist.deezerUrl}
+                          label="Deezer"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                  {followedProviderIds.has(artist.providerArtistId) ? (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/14 px-3 py-2 text-sm font-medium text-emerald-200 dark:text-emerald-200">
+                      Following
+                    </span>
+                  ) : (
+                    <form action={followArtistAction}>
+                      <input name="providerArtistId" type="hidden" value={artist.providerArtistId} />
+                      <input name="query" type="hidden" value={query} />
+                      <SubmitButton className="primary-button" pendingLabel="Adding...">
+                        Follow
+                      </SubmitButton>
+                    </form>
+                  )}
+                </article>
+              ))}
+            </div>
           )}
         </div>
       </section>
@@ -195,28 +224,24 @@ export default async function ArtistsPage({
             body="Search for artists on the left or import them from Last.fm or Deezer, then the worker will start collecting release metadata."
           />
         ) : (
-          followed.map((follow) => (
-            <article key={follow.artistId} className="panel">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="text-xl font-semibold text-[var(--text)]">
-                    {follow.artist.canonicalName}
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    Last synced{" "}
-                    {follow.lastSyncedAt ? follow.lastSyncedAt.toLocaleString() : "not yet"}
-                  </p>
-                </div>
-                <form action={unfollowArtistAction}>
-                  <input name="artistId" type="hidden" value={follow.artistId} />
-                  <SubmitButton className="ghost-button" pendingLabel="Removing...">
-                    <UserMinus className="h-4 w-4" />
-                    Unfollow
-                  </SubmitButton>
-                </form>
-              </div>
-            </article>
-          ))
+          <ArtistWatchlist
+            followed={followed.map((follow) => ({
+              artistId: follow.artistId,
+              canonicalName: follow.artist.canonicalName,
+              imageUrl: follow.artist.imageUrl,
+              deezerFans: follow.artist.deezerFans,
+              lastSyncedAt: follow.lastSyncedAt ? follow.lastSyncedAt.toISOString() : null,
+              knownReleaseCount: follow.artist._count.releaseArtists,
+              deezerUrl:
+                follow.artist.mappings.find((mapping) => mapping.provider === "DEEZER")?.url ?? null,
+              latestKnownRelease: follow.artist.releaseArtists[0]?.release
+                ? {
+                    title: follow.artist.releaseArtists[0].release.title,
+                    releaseDate: follow.artist.releaseArtists[0].release.releaseDate.toISOString(),
+                  }
+                : null,
+            }))}
+          />
         )}
       </section>
     </div>

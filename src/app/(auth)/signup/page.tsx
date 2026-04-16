@@ -1,7 +1,18 @@
 import { AuthCard } from "@/components/auth-card";
 import { signUp } from "@/app/actions/auth";
 
-export default function SignupPage() {
+const SIGNUP_ERRORS: Record<string, string> = {
+  exists: "An account with that email already exists.",
+  invalid: "Enter your name, a valid email address, and a password with at least 8 characters.",
+};
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
+
   return (
     <main className="auth-page">
       <div className="auth-grid">
@@ -33,10 +44,13 @@ export default function SignupPage() {
         <AuthCard
           action={signUp}
           ctaLabel="Create account"
+          emailAutoComplete="email"
+          error={params.error ? SIGNUP_ERRORS[params.error] : undefined}
           footerHref="/login"
           footerLabel="Sign in"
           footerText="Already have an account?"
           includeName
+          passwordAutoComplete="new-password"
           subtitle="This is a self-hosted product, so signup is local and password-based. No external identity provider required."
           title="Start your release desk"
         />

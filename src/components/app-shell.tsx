@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarClock, Disc3, LayoutDashboard, Radio, Search, Settings } from "lucide-react";
+import { CalendarClock, Disc3, LayoutDashboard, Menu, Search, Settings, X } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/submit-button";
@@ -23,6 +24,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen">
@@ -81,49 +83,60 @@ export function AppShell({
           </aside>
 
           <main className="flex min-w-0 flex-col gap-4">
-            <header className="topbar px-5 py-4 md:px-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="eyebrow">Listening desk</p>
-                  <p className="mt-2 text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">
-                    Track release dates, late discoveries, and queue health.
+            <div className="flex items-center justify-between gap-3 rounded-[var(--radius-lg)] bg-[var(--mobile-header-bg)] px-4 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)] backdrop-blur-[10px] md:hidden">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,_rgba(45,109,246,1),_rgba(16,42,71,1))] text-white shadow-[0_10px_24px_rgba(24,52,84,0.22)]">
+                  <Disc3 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[0.95rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
+                    Freshwax
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <span className="status-pill">
-                    <Disc3 className="h-4 w-4" />
-                    Self-hosted music ops
-                  </span>
-                  <a
-                    className="ghost-button"
-                    href="https://www.deezer.com"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Radio className="h-4 w-4" />
-                    Deezer catalog
-                  </a>
-                </div>
               </div>
-            </header>
+              <button
+                aria-expanded={mobileMenuOpen}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--mobile-toggle-bg)] text-[var(--text)] shadow-[0_6px_16px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:-translate-y-px hover:bg-[var(--mobile-toggle-bg-hover)]"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                type="button"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
 
-            <nav className="topbar flex gap-2 overflow-x-auto p-2 md:hidden">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
+            {mobileMenuOpen ? (
+              <nav className="panel p-3 md:hidden">
+                <div className="grid grid-cols-2 gap-2">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname === item.href;
 
-                return (
-                  <Link
-                    key={item.href}
-                    className={`nav-link shrink-0 ${isActive ? "nav-link--active" : ""}`}
-                    href={item.href}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+                    return (
+                      <Link
+                        key={item.href}
+                        className={`nav-link nav-link--mobile ${isActive ? "nav-link--active" : ""}`}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                <div className="panel-muted mt-3 p-4">
+                  <p className="eyebrow">Signed in</p>
+                  <p className="mt-2 text-base font-semibold text-[var(--text)]">{userName}</p>
+                  <form action={signOut} className="mt-4">
+                    <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">
+                      Sign out
+                    </SubmitButton>
+                  </form>
+                </div>
+              </nav>
+            ) : null}
 
             <div className="pb-6">{children}</div>
           </main>

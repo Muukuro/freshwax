@@ -129,16 +129,21 @@ export async function getFollowedArtists(userId: string) {
       artist: {
         include: {
           mappings: true,
+          _count: {
+            select: {
+              releaseArtists: true,
+            },
+          },
           releaseArtists: {
             include: {
               release: true,
             },
             orderBy: {
               release: {
-                releaseDate: "asc",
+                releaseDate: "desc",
               },
             },
-            take: 3,
+            take: 1,
           },
         },
       },
