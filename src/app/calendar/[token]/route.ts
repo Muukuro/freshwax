@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { buildCalendarFeed } from "@/lib/calendar";
-import { buildReleaseTypeFilter } from "@/lib/data";
+import { buildReleaseTypeFilter, filterReleasesForSettings } from "@/lib/data";
+import { buildReleasePlatformLinks } from "@/lib/platform-links";
 import { horizonDate } from "@/lib/utils";
 
 export async function GET(
@@ -14,6 +15,7 @@ export async function GET(
       user: {
         include: {
           settings: true,
+          platformPreferences: true,
         },
       },
     },
@@ -45,14 +47,28 @@ export async function GET(
     include: {
       artists: {
         include: {
-          artist: true,
+          artist: {
+            include: {
+              mappings: true,
+            },
+          },
         },
       },
+      mappings: true,
     },
     orderBy: [{ releaseDate: "asc" }, { title: "asc" }],
   });
+  const filteredReleases = filterReleasesForSettings(releases, settings ?? {}).map((release) => ({
+    ...release,
+    platformLinks: buildReleasePlatformLinks({
+      artistName: release.artists[0]?.artist.canonicalName ?? "Unknown Artist",
+      releaseTitle: release.title,
+      mappings: release.mappings,
+      preferences: calendarToken.user.platformPreferences,
+    }),
+  }));
 
-  const ics = buildCalendarFeed(releases, token, `${calendarToken.user.name} releases`);
+  const ics = buildCalendarFeed(filteredReleases, token, `${calendarToken.user.name} releases`);
 
   return new Response(ics, {
     headers: {

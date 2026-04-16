@@ -1,5 +1,7 @@
 import { AuthCard } from "@/components/auth-card";
 import { signUp } from "@/app/actions/auth";
+import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
+import { STREAMING_PROVIDERS, getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
 
 const SIGNUP_ERRORS: Record<string, string> = {
   exists: "An account with that email already exists.",
@@ -12,6 +14,15 @@ export default async function SignupPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const externalProviders = STREAMING_PROVIDERS.filter((provider) => getProviderCapability(provider).supportsLogin).map(
+    (provider) => ({
+      label: `Sign up with ${getProviderLabel(provider)}`,
+      href: isProviderConfigured(provider) && isExternalAuthImplemented(provider)
+        ? `/api/auth/${provider.toLowerCase()}/connect`
+        : undefined,
+      note: getExternalAuthAvailabilityNote(provider),
+    }),
+  );
 
   return (
     <main className="auth-page">
@@ -49,9 +60,10 @@ export default async function SignupPage({
           footerHref="/login"
           footerLabel="Sign in"
           footerText="Already have an account?"
+          externalProviders={externalProviders}
           includeName
           passwordAutoComplete="new-password"
-          subtitle="This is a self-hosted product, so signup is local and password-based. No external identity provider required."
+          subtitle="Self-hosted and local-first, with optional external sign-in from the music platforms you actually use."
           title="Start your release desk"
         />
       </div>

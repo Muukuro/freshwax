@@ -7,6 +7,8 @@ export default async function DiscoveriesPage() {
   const user = await requireUser();
   const releases = await getDiscoveredReleases(user.id);
   const singlesHidden = user.settings?.includeSingles === false;
+  const classicalComposerAppearancesHidden =
+    user.settings?.hideClassicalComposerAppearances !== false;
 
   return (
     <div className="space-y-4">
@@ -17,6 +19,12 @@ export default async function DiscoveriesPage() {
           {singlesHidden ? (
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
               Singles are hidden right now, so this feed only shows full-length releases and any other enabled types.
+            </p>
+          ) : null}
+          {classicalComposerAppearancesHidden ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Classical composer appearances are hidden when the release looks like a fresh
+              performance of an older composer&apos;s work.
             </p>
           ) : null}
         </div>

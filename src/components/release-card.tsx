@@ -7,12 +7,14 @@ import {
 } from "@/app/actions/follows";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
+import { type PlatformLinkEntry } from "@/lib/data";
 import { releaseDateLabel, releaseTypeLabel } from "@/lib/utils";
 
 type ReleaseWithArtists = Release & {
   artists: { artist: { canonicalName: string } }[];
   discoveries?: { discoveredAt: Date }[];
   ignoredBy?: { releaseId: string }[];
+  platformLinks?: PlatformLinkEntry[];
 };
 
 export function ReleaseCard({
@@ -29,7 +31,7 @@ export function ReleaseCard({
     <article className="panel overflow-hidden">
       <div className="flex gap-4">
         <div
-          className="release-art h-24 w-24 shrink-0 rounded-[1rem] bg-[linear-gradient(135deg,_rgba(45,109,246,0.24),_rgba(15,28,43,0.08))] bg-cover bg-center"
+          className="release-art h-24 w-24 shrink-0 rounded-[0.45rem] bg-[linear-gradient(135deg,_rgba(45,109,246,0.24),_rgba(15,28,43,0.08))] bg-cover bg-center"
           style={release.coverUrl ? { backgroundImage: `url(${release.coverUrl})` } : undefined}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -58,12 +60,14 @@ export function ReleaseCard({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {release.deezerUrl ? (
-              <PlatformLink className="ghost-button" href={release.deezerUrl} label="Deezer" />
-            ) : null}
-            {release.tidalUrl ? (
-              <PlatformLink className="ghost-button" href={release.tidalUrl} label="TIDAL" />
-            ) : null}
+            {(release.platformLinks ?? []).map((link) => (
+              <PlatformLink
+                key={`${release.id}-${link.provider}`}
+                className="ghost-button"
+                href={link.href}
+                label={link.label}
+              />
+            ))}
 
             <form action={ignored ? unignoreReleaseAction : ignoreReleaseAction}>
               <input name="releaseId" type="hidden" value={release.id} />

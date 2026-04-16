@@ -10,6 +10,10 @@ datasource db {
 enum Provider {
   DEEZER
   TIDAL
+  SPOTIFY
+  APPLE_MUSIC
+  YOUTUBE_MUSIC
+  AMAZON_MUSIC
 }
 
 enum ReleaseType {
@@ -39,14 +43,20 @@ model User {
   id                 String              @id @default(cuid())
   email              String              @unique
   name               String
-  passwordHash       String
+  passwordHash       String?
   timezone           String              @default("UTC")
+  onboardingCompletedAt DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   sessions           Session[]
   settings           UserSettings?
   deezerConnection   DeezerConnection?
+  spotifyConnection  SpotifyConnection?
+  tidalConnection    TidalConnection?
+  appleMusicConnection AppleMusicConnection?
   lastfmConnection   LastfmConnection?
+  externalIdentities ExternalIdentity[]
+  platformPreferences UserPlatformPreference[]
   follows            UserFollow[]
   calendarToken      CalendarToken?
   discoveries        DiscoveryEvent[]
@@ -74,6 +84,7 @@ model UserSettings {
   includeCompilations  Boolean  @default(false)
   includeLive          Boolean  @default(false)
   includeReissues      Boolean  @default(false)
+  hideClassicalComposerAppearances Boolean @default(true)
   hideIgnored          Boolean  @default(true)
   futureHorizonDays    Int      @default(180)
   discoveryWindowDays  Int      @default(30)
@@ -104,6 +115,46 @@ model DeezerConnection {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model SpotifyConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  spotifyUserId  String   @unique
+  spotifyUserName String?
+  accessToken    String
+  refreshToken   String?
+  expiresAt      DateTime?
+  lastImportedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TidalConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  tidalUserId    String   @unique
+  tidalUserName  String?
+  accessToken    String
+  refreshToken   String?
+  expiresAt      DateTime?
+  lastImportedAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppleMusicConnection {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  appleMusicUserId String?
+  musicUserToken   String
+  storefront       String?
+  lastImportedAt   DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model LastfmConnection {
   id              String   @id @default(cuid())
   userId          String   @unique
@@ -113,6 +164,38 @@ model LastfmConnection {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExternalIdentity {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       Provider
+  providerUserId String
+  email          String?
+  displayName    String?
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model UserPlatformPreference {
+  userId           String
+  provider         Provider
+  favoriteRank     Int?
+  allowImport      Boolean  @default(false)
+  showArtistLinks  Boolean  @default(true)
+  showReleaseLinks Boolean  @default(true)
+  isFavorite       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, provider])
+  @@index([provider])
 }
 
 model Artist {

@@ -21,6 +21,19 @@ type DeezerAlbum = {
   md5_image?: string;
   release_date: string;
   record_type?: string;
+  tracklist?: string;
+  genre_id?: number;
+};
+
+type DeezerTrack = {
+  artist?: {
+    name?: string;
+  };
+};
+
+type DeezerTracklist = {
+  data: DeezerTrack[];
+  next?: string;
 };
 
 type DeezerUser = {
@@ -321,4 +334,28 @@ export async function fetchArtistReleases(providerArtistId: string) {
     recordType: release.record_type ?? null,
     raw: release,
   }));
+}
+
+export async function fetchTrackArtistNames(tracklistUrl: string) {
+  const artists = new Set<string>();
+  let nextUrl = tracklistUrl;
+  let pages = 0;
+
+  while (nextUrl && pages < 2 && artists.size < 8) {
+    const payload = await deezerFetch<DeezerTracklist>(nextUrl, {
+      nextRevalidate: 60 * 30,
+    });
+
+    for (const track of payload.data) {
+      const name = track.artist?.name?.trim();
+      if (name) {
+        artists.add(name);
+      }
+    }
+
+    nextUrl = payload.next ?? "";
+    pages += 1;
+  }
+
+  return Array.from(artists);
 }

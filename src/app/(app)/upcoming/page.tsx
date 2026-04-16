@@ -7,6 +7,8 @@ export default async function UpcomingPage() {
   const user = await requireUser();
   const releases = await getUpcomingReleases(user.id);
   const singlesHidden = user.settings?.includeSingles === false;
+  const classicalComposerAppearancesHidden =
+    user.settings?.hideClassicalComposerAppearances !== false;
 
   return (
     <div className="space-y-4">
@@ -19,13 +21,19 @@ export default async function UpcomingPage() {
               Singles are hidden right now, so this timeline stays focused on full-length releases.
             </p>
           ) : null}
+          {classicalComposerAppearancesHidden ? (
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              Classical composer appearances are hidden when the release looks like a new
+              performance rather than a true new release from the followed artist.
+            </p>
+          ) : null}
         </div>
       </div>
 
       {releases.length === 0 ? (
         <EmptyState
           title="No upcoming releases found"
-          body="Either your followed artists do not have future release dates in Deezer yet, or your filters are excluding them."
+          body="Either your followed artists do not have future release dates in the current catalog sources yet, or your filters are excluding them."
         />
       ) : (
         releases.map((release) => <ReleaseCard key={release.id} release={release} />)

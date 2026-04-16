@@ -3,9 +3,11 @@ import { randomBytes } from "node:crypto";
 import { addDays } from "date-fns";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { Provider } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { env, isProduction } from "@/lib/env";
+import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
@@ -26,6 +28,14 @@ export async function ensureUserScaffold(userId: string) {
     where: { userId },
     update: {},
     create: { userId, token: randomBytes(24).toString("hex") },
+  });
+
+  await prisma.userPlatformPreference.createMany({
+    data: STREAMING_PROVIDERS.map((provider) => ({
+      userId,
+      ...getDefaultProviderPreference(provider),
+    })),
+    skipDuplicates: true,
   });
 }
 
@@ -72,26 +82,129 @@ export async function getCurrentUser() {
 
   const session = await prisma.session.findUnique({
     where: { token },
-    include: {
-      user: {
-        include: {
-          settings: true,
-          calendarToken: true,
-          deezerConnection: true,
-          lastfmConnection: true,
-        },
-      },
+    select: {
+      id: true,
+      expiresAt: true,
+      userId: true,
     },
   });
 
   if (!session || session.expiresAt < new Date()) {
     if (session) {
-      await prisma.session.delete({ where: { token } });
+      await prisma.session.delete({ where: { id: session.id } });
     }
     return null;
   }
 
-  return session.user;
+  await ensureUserScaffold(session.userId);
+
+  return prisma.user.findUnique({
+    where: { id: session.userId },
+    include: {
+      settings: true,
+      calendarToken: true,
+      deezerConnection: true,
+      spotifyConnection: true,
+      tidalConnection: true,
+      appleMusicConnection: true,
+      lastfmConnection: true,
+      platformPreferences: {
+        orderBy: [{ favoriteRank: "asc" }, { provider: "asc" }],
+      },
+      externalIdentities: true,
+    },
+  });
+}
+
+export async function getPostAuthRedirect(userId: string) {
+  const [followCount, user] = await Promise.all([
+    prisma.userFollow.count({ where: { userId } }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        onboardingCompletedAt: true,
+      },
+    }),
+  ]);
+
+  if (!user?.onboardingCompletedAt || followCount === 0) {
+    return "/onboarding";
+  }
+
+  return "/dashboard";
+}
+
+export async function requireOnboardedUser() {
+  const user = await requireUser();
+  const followCount = await prisma.userFollow.count({
+    where: { userId: user.id },
+  });
+
+  if (!user.onboardingCompletedAt || followCount === 0) {
+    redirect("/onboarding");
+  }
+
+  return user;
+}
+
+export async function createExternalIdentityUser(input: {
+  provider: Provider;
+  providerUserId: string;
+  email: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}) {
+  const existingIdentity = await prisma.externalIdentity.findUnique({
+    where: {
+      provider_providerUserId: {
+        provider: input.provider,
+        providerUserId: input.providerUserId,
+      },
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  if (existingIdentity) {
+    await prisma.externalIdentity.update({
+      where: { id: existingIdentity.id },
+      data: {
+        email: input.email,
+        displayName: input.displayName ?? existingIdentity.displayName,
+        avatarUrl: input.avatarUrl ?? existingIdentity.avatarUrl,
+      },
+    });
+
+    return existingIdentity.user;
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: input.email },
+  });
+
+  if (existingUser) {
+    throw new Error("Account merge confirmation required");
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email: input.email,
+      name: input.displayName?.trim() || input.email.split("@")[0] || "Freshwax listener",
+      externalIdentities: {
+        create: {
+          provider: input.provider,
+          providerUserId: input.providerUserId,
+          email: input.email,
+          displayName: input.displayName ?? null,
+          avatarUrl: input.avatarUrl ?? null,
+        },
+      },
+    },
+  });
+
+  await ensureUserScaffold(user.id);
+  return user;
 }
 
 export async function requireUser() {

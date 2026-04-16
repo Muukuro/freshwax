@@ -7,6 +7,7 @@ import {
   createSession,
   destroySession,
   ensureUserScaffold,
+  getPostAuthRedirect,
   hashPassword,
   verifyPassword,
 } from "@/lib/auth";
@@ -47,7 +48,7 @@ export async function signUp(formData: FormData) {
 
   await ensureUserScaffold(user.id);
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(await getPostAuthRedirect(user.id));
 }
 
 export async function signIn(formData: FormData) {
@@ -68,6 +69,10 @@ export async function signIn(formData: FormData) {
     redirect("/login?error=credentials");
   }
 
+  if (!user.passwordHash) {
+    redirect("/login?error=external-only");
+  }
+
   const isValid = await verifyPassword(parsed.data.password, user.passwordHash);
 
   if (!isValid) {
@@ -76,7 +81,7 @@ export async function signIn(formData: FormData) {
 
   await ensureUserScaffold(user.id);
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(await getPostAuthRedirect(user.id));
 }
 
 export async function signOut() {

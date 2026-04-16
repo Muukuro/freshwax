@@ -72,7 +72,7 @@ export function AppShell({
               <p className="eyebrow">Signed in</p>
               <p className="mt-2 text-lg font-semibold text-[var(--text)]">{userName}</p>
               <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                Local account, local server, local queue worker.
+                Local session, self-hosted server, and platform-aware release tracking.
               </p>
               <form action={signOut} className="mt-4">
                 <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">

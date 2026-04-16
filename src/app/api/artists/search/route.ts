@@ -1,6 +1,7 @@
-import { searchArtists } from "@/lib/providers/deezer";
+import { searchCatalogArtists } from "@/lib/catalog";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { normalizeName } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -10,29 +11,26 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const query = url.searchParams.get("q") ?? "";
-  const results = await searchArtists(query);
-  const followedMappings = await prisma.userFollow.findMany({
+  const results = await searchCatalogArtists(query);
+  const followedArtists = await prisma.userFollow.findMany({
     where: { userId: user.id },
     select: {
       artist: {
         select: {
-          mappings: {
-            where: { provider: "DEEZER" },
-            select: { providerArtistId: true },
-          },
+          canonicalName: true,
         },
       },
     },
   });
 
   const followed = new Set(
-    followedMappings.flatMap((entry) => entry.artist.mappings.map((mapping) => mapping.providerArtistId)),
+    followedArtists.map((entry) => normalizeName(entry.artist.canonicalName)),
   );
 
   return Response.json(
     results.map((result) => ({
       ...result,
-      alreadyFollowing: followed.has(result.providerArtistId),
+      alreadyFollowing: followed.has(normalizeName(result.name)),
     })),
   );
 }

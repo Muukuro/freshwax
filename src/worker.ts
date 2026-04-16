@@ -1,14 +1,17 @@
 import { JobStatus } from "@prisma/client";
 import { QueueEvents, Worker } from "bullmq";
 
-import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { ensureRecurringSync, getQueueConnection } from "@/lib/queue";
 import { DeezerRateLimitError } from "@/lib/providers/deezer";
+import { isBackgroundSchemaReady } from "@/lib/schema-ready";
+import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
 import { syncAllArtists, syncArtist } from "@/lib/sync";
 
 async function main() {
-  await ensureRecurringSync();
+  if (await isBackgroundSchemaReady()) {
+    await ensureRecurringSync();
+  }
 
   const queueEvents = new QueueEvents("artist-sync", {
     connection: getQueueConnection(),
@@ -25,34 +28,27 @@ async function main() {
   const worker = new Worker(
     "artist-sync",
     async (job) => {
+      if (!(await isBackgroundSchemaReady())) {
+        console.warn(`Skipping job ${job.id} (${job.name}) until Prisma schema is applied`);
+        return;
+      }
+
       if (job.name === "sync-all-artists") {
-        const syncJob = await prisma.syncJob.create({
-          data: {
-            kind: "SYNC_ALL_ARTISTS",
-            status: JobStatus.RUNNING,
-            startedAt: new Date(),
-            message: "Worker started a global sync",
-          },
+        const syncJob = await createSyncJobLog({
+          kind: "SYNC_ALL_ARTISTS",
+          message: "Worker started a global sync",
         });
 
         try {
           await syncAllArtists();
-          await prisma.syncJob.update({
-            where: { id: syncJob.id },
-            data: {
-              status: JobStatus.SUCCEEDED,
-              finishedAt: new Date(),
-              message: "Global sync complete",
-            },
+          await updateSyncJobLog(syncJob, {
+            status: JobStatus.SUCCEEDED,
+            message: "Global sync complete",
           });
         } catch (error) {
-          await prisma.syncJob.update({
-            where: { id: syncJob.id },
-            data: {
-              status: JobStatus.FAILED,
-              finishedAt: new Date(),
-              message: error instanceof Error ? error.message : "Global sync failed",
-            },
+          await updateSyncJobLog(syncJob, {
+            status: JobStatus.FAILED,
+            message: error instanceof Error ? error.message : "Global sync failed",
           });
           throw error;
         }

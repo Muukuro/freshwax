@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Provider } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
-import { enqueueArtistSync, enqueueGlobalSync } from "@/lib/queue";
+import { enqueueArtistSync } from "@/lib/queue";
 import {
   followArtistForUser,
   importDeezerFollowedArtistsForUser,
@@ -11,23 +12,34 @@ import {
   syncArtist,
   unfollowArtistForUser,
 } from "@/lib/sync";
-import { isDeezerOAuthConfigured, searchArtists } from "@/lib/providers/deezer";
+import { isDeezerOAuthConfigured } from "@/lib/providers/deezer";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
 import { prisma } from "@/lib/db";
 
 export async function followArtistAction(formData: FormData) {
   const user = await requireUser();
-  const providerArtistId = String(formData.get("providerArtistId") ?? "");
-  const query = String(formData.get("query") ?? "");
+  const catalogArtistId = String(formData.get("catalogArtistId") ?? "").trim();
+  const artistName = String(formData.get("artistName") ?? "").trim();
+  const providerArtistId = String(formData.get("providerArtistId") ?? "").trim();
+  const providerUrl = String(formData.get("providerUrl") ?? "").trim();
+  const sourceProviderRaw = String(formData.get("sourceProvider") ?? "").trim();
+  const sourceProvider = sourceProviderRaw
+    ? (Provider[sourceProviderRaw as keyof typeof Provider] ?? sourceProviderRaw)
+    : undefined;
 
-  const results = await searchArtists(query);
-  const match = results.find((entry) => entry.providerArtistId === providerArtistId);
-
-  if (!match) {
+  if (!artistName) {
     throw new Error("Artist search result could not be resolved");
   }
 
-  const artist = await followArtistForUser(user.id, match);
+  const artist = await followArtistForUser(user.id, {
+    catalogArtistId,
+    name: artistName,
+    sourceProvider: sourceProvider as Provider | undefined,
+    providerArtistId: providerArtistId || null,
+    providerUrl: providerUrl || null,
+    imageUrl: null,
+    deezerFans: null,
+  });
   await enqueueArtistSync(artist.id);
   void syncArtist(artist.id, user.id).catch(() => undefined);
 
@@ -155,19 +167,5 @@ export async function unignoreReleaseAction(formData: FormData) {
 
   revalidatePath("/upcoming");
   revalidatePath("/discoveries");
-  revalidatePath("/dashboard");
-}
-
-export async function triggerGlobalSyncAction() {
-  const user = await requireUser();
-  await enqueueGlobalSync();
-  await prisma.syncJob.create({
-    data: {
-      kind: "SYNC_ALL_ARTISTS",
-      status: "PENDING",
-      userId: user.id,
-      message: "Queued a full sync",
-    },
-  });
   revalidatePath("/dashboard");
 }

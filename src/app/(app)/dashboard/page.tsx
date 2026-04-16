@@ -1,10 +1,8 @@
-import { ArrowRight, CalendarClock, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarClock, Sparkles } from "lucide-react";
 
-import { triggerGlobalSyncAction } from "@/app/actions/follows";
 import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
 import { StatsCard } from "@/components/stats-card";
-import { SubmitButton } from "@/components/submit-button";
 import { getDashboardData } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
 
@@ -21,23 +19,18 @@ export default async function DashboardPage() {
             Keep a private watchlist and catch releases before they disappear into the feed.
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-8 text-blue-100/78">
-            Deezer powers the catalog lookup, TIDAL links are generated as a secondary listening path,
-            and a background worker keeps your feed fresh without manual refreshes.
+            Freshwax now treats listening platforms as preferences instead of hard-coded defaults, and
+            a background worker keeps your feed fresh without manual refreshes.
           </p>
         </div>
         <div className="relative z-10 flex flex-col justify-between gap-6 md:max-w-xs md:items-end">
           <div className="rounded-[1rem] border border-white/12 bg-white/8 p-4 backdrop-blur-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">At a glance</p>
             <p className="mt-2 text-sm leading-7 text-blue-100/76">
-              Track what is coming, what arrived late, and whether the sync pipeline is keeping up.
+              Track what is coming, what arrived late, and let Freshwax queue background sync when
+              your watchlist needs a refresh.
             </p>
           </div>
-          <form action={triggerGlobalSyncAction}>
-            <SubmitButton className="primary-button" pendingLabel="Queueing...">
-              <RefreshCw className="h-4 w-4" />
-              Run full sync
-            </SubmitButton>
-          </form>
         </div>
       </section>
 
@@ -53,9 +46,9 @@ export default async function DashboardPage() {
           detail={`Within your ${data.settings.futureHorizonDays}-day calendar horizon.`}
         />
         <StatsCard
-          label="Latest sync"
-          value={data.latestJob?.status ?? "Idle"}
-          detail={data.latestJob?.message ?? "No sync job has run from this account yet."}
+          label="Recent discoveries"
+          value={String(data.discoveredReleasesCount)}
+          detail={`Found in the last ${data.settings.discoveryWindowDays} days after you started tracking them.`}
         />
       </section>
 

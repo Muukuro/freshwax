@@ -4,54 +4,162 @@ import { subDays } from "date-fns";
 import { prisma } from "@/lib/db";
 import {
   fetchArtistReleases,
+  fetchTrackArtistNames,
   fetchCurrentUserFollowedArtists,
   searchArtists,
 } from "@/lib/providers/deezer";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
 import { buildTidalReleaseSearchUrl } from "@/lib/providers/tidal";
 import { classifyReleaseType } from "@/lib/release-types";
+import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
 import { normalizeName } from "@/lib/utils";
 
 type ArtistSearchResult = {
-  providerArtistId: string;
+  catalogArtistId?: string;
   name: string;
-  deezerUrl: string | null;
+  sourceProvider?: Provider;
+  providerArtistId?: string | null;
+  providerUrl?: string | null;
   imageUrl: string | null;
   deezerFans: number | null;
   raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
 };
 
-export async function followArtistForUser(userId: string, artistResult: ArtistSearchResult) {
-  const mapping = await prisma.artistProviderMapping.findUnique({
-    where: {
-      provider_providerArtistId: {
-        provider: Provider.DEEZER,
-        providerArtistId: artistResult.providerArtistId,
+const CLASSICAL_GENRE_ID = 98;
+
+function shouldCaptureAttributionHints(
+  release: { releaseDate: string; raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput },
+  maxDiscoveryWindowDays: number,
+) {
+  if (!release.raw || typeof release.raw !== "object" || Array.isArray(release.raw)) {
+    return false;
+  }
+
+  const genreId =
+    "genre_id" in release.raw && typeof release.raw.genre_id === "number"
+      ? release.raw.genre_id
+      : null;
+
+  if (genreId !== CLASSICAL_GENRE_ID) {
+    return false;
+  }
+
+  const releaseDate = new Date(`${release.releaseDate}T00:00:00.000Z`);
+  return releaseDate >= subDays(new Date(), maxDiscoveryWindowDays);
+}
+
+async function enrichReleaseRawSource(
+  release: { releaseDate: string; raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput },
+  maxDiscoveryWindowDays: number,
+) {
+  if (!shouldCaptureAttributionHints(release, maxDiscoveryWindowDays)) {
+    return release.raw;
+  }
+
+  if (!release.raw || typeof release.raw !== "object" || Array.isArray(release.raw)) {
+    return release.raw;
+  }
+
+  const tracklistUrl =
+    "tracklist" in release.raw && typeof release.raw.tracklist === "string"
+      ? release.raw.tracklist
+      : null;
+
+  if (!tracklistUrl) {
+    return release.raw;
+  }
+
+  try {
+    const trackArtistNames = await fetchTrackArtistNames(tracklistUrl);
+
+    return {
+      ...release.raw,
+      attributionHints: {
+        trackArtistNames,
       },
-    },
-    include: {
-      artist: true,
-    },
-  });
+    } satisfies Prisma.InputJsonValue;
+  } catch (error) {
+    console.error("Failed to enrich Deezer release attribution hints", error);
+    return release.raw;
+  }
+}
+
+export async function followArtistForUser(userId: string, artistResult: ArtistSearchResult) {
+  const normalizedName = normalizeName(artistResult.name);
+  if (!normalizedName) {
+    throw new Error("Artist name could not be normalized");
+  }
+
+  const mapping =
+    artistResult.sourceProvider && artistResult.providerArtistId
+      ? await prisma.artistProviderMapping.findUnique({
+          where: {
+            provider_providerArtistId: {
+              provider: artistResult.sourceProvider,
+              providerArtistId: artistResult.providerArtistId,
+            },
+          },
+          include: {
+            artist: true,
+          },
+        })
+      : null;
+
+  const existingArtistByName = mapping
+    ? null
+    : await prisma.artist.findFirst({
+        where: {
+          normalizedName,
+        },
+      });
 
   const artist =
     mapping?.artist ??
+    existingArtistByName ??
     (await prisma.artist.create({
       data: {
+        id: artistResult.catalogArtistId ?? undefined,
         canonicalName: artistResult.name,
-        normalizedName: normalizeName(artistResult.name),
+        normalizedName,
         imageUrl: artistResult.imageUrl,
         deezerFans: artistResult.deezerFans,
-        mappings: {
-          create: {
-            provider: Provider.DEEZER,
-            providerArtistId: artistResult.providerArtistId,
-            url: artistResult.deezerUrl,
-            rawJson: artistResult.raw,
-          },
-        },
       },
     }));
+
+  if (existingArtistByName) {
+    await prisma.artist.update({
+      where: { id: artist.id },
+      data: {
+        canonicalName: artistResult.name,
+        normalizedName,
+        imageUrl: artistResult.imageUrl ?? artist.imageUrl,
+        deezerFans: artistResult.deezerFans ?? artist.deezerFans,
+      },
+    });
+  }
+
+  if (artistResult.sourceProvider && artistResult.providerArtistId) {
+    await prisma.artistProviderMapping.upsert({
+      where: {
+        provider_providerArtistId: {
+          provider: artistResult.sourceProvider,
+          providerArtistId: artistResult.providerArtistId,
+        },
+      },
+      update: {
+        artistId: artist.id,
+        url: artistResult.providerUrl,
+        rawJson: artistResult.raw ?? undefined,
+      },
+      create: {
+        artistId: artist.id,
+        provider: artistResult.sourceProvider,
+        providerArtistId: artistResult.providerArtistId,
+        url: artistResult.providerUrl,
+        rawJson: artistResult.raw ?? undefined,
+      },
+    });
+  }
 
   await prisma.userFollow.upsert({
     where: {
@@ -117,7 +225,15 @@ export async function importDeezerFollowedArtistsForUser(userId: string, accessT
   const artists = await fetchCurrentUserFollowedArtists(accessToken);
 
   for (const artist of artists) {
-    const followedArtist = await followArtistForUser(userId, artist);
+    const followedArtist = await followArtistForUser(userId, {
+      name: artist.name,
+      sourceProvider: Provider.DEEZER,
+      providerArtistId: artist.providerArtistId,
+      providerUrl: artist.deezerUrl,
+      imageUrl: artist.imageUrl,
+      deezerFans: artist.deezerFans,
+      raw: artist.raw,
+    });
     await enqueueArtistSyncSafe(followedArtist.id);
   }
 
@@ -154,7 +270,8 @@ async function resolveArtistSearchResultByName(name: string) {
     return {
       providerArtistId: existingMapping.providerArtistId,
       name: existingArtist.canonicalName,
-      deezerUrl: existingMapping.url,
+      sourceProvider: Provider.DEEZER,
+      providerUrl: existingMapping.url,
       imageUrl: existingArtist.imageUrl,
       deezerFans: existingArtist.deezerFans,
       raw: existingMapping.rawJson ?? undefined,
@@ -167,7 +284,17 @@ async function resolveArtistSearchResultByName(name: string) {
   const exactMatch =
     results.find((result) => normalizeName(result.name) === normalizedTarget) ?? null;
 
-  return exactMatch;
+  return exactMatch
+    ? {
+        name: exactMatch.name,
+        sourceProvider: Provider.DEEZER,
+        providerArtistId: exactMatch.providerArtistId,
+        providerUrl: exactMatch.deezerUrl,
+        imageUrl: exactMatch.imageUrl,
+        deezerFans: exactMatch.deezerFans,
+        raw: exactMatch.raw,
+      }
+    : null;
 }
 
 export async function importLastfmTopArtistsForUser(
@@ -222,14 +349,11 @@ async function enqueueArtistSyncSafe(artistId: string) {
 }
 
 export async function syncArtist(artistId: string, userId?: string) {
-  const job = await prisma.syncJob.create({
-    data: {
-      kind: JobKind.SYNC_FOLLOWED_ARTIST,
-      status: JobStatus.RUNNING,
-      artistId,
-      userId,
-      startedAt: new Date(),
-    },
+  const job = await createSyncJobLog({
+    kind: JobKind.SYNC_FOLLOWED_ARTIST,
+    artistId,
+    userId,
+    message: "Worker started an artist sync",
   });
 
   try {
@@ -247,7 +371,19 @@ export async function syncArtist(artistId: string, userId?: string) {
 
     const deezerMapping = artist.mappings.find((entry) => entry.provider === Provider.DEEZER);
     if (!deezerMapping) {
-      throw new Error("Artist is missing a Deezer mapping");
+      await prisma.userFollow.updateMany({
+        where: { artistId },
+        data: {
+          lastSyncedAt: new Date(),
+        },
+      });
+
+      await updateSyncJobLog(job, {
+        status: JobStatus.SUCCEEDED,
+        message: "No release-sync provider mapping is available for this artist yet",
+      });
+
+      return;
     }
 
     const remoteReleases = await fetchArtistReleases(deezerMapping.providerArtistId);
@@ -281,12 +417,17 @@ export async function syncArtist(artistId: string, userId?: string) {
     const discoveryWindowByUserId = new Map(
       followerSettings.map((entry) => [entry.userId, entry.discoveryWindowDays]),
     );
+    const maxDiscoveryWindowDays = Math.max(
+      30,
+      ...followerSettings.map((entry) => entry.discoveryWindowDays),
+    );
 
     for (const release of remoteReleases) {
       const existing = mappingByProviderId.get(release.providerReleaseId);
       const tidalUrl = buildTidalReleaseSearchUrl(artist.canonicalName, release.title);
       const releaseDate = new Date(`${release.releaseDate}T00:00:00.000Z`);
       const type = classifyReleaseType(release.recordType, release.title);
+      const rawSource = await enrichReleaseRawSource(release, maxDiscoveryWindowDays);
 
       if (existing) {
         await prisma.release.update({
@@ -299,7 +440,7 @@ export async function syncArtist(artistId: string, userId?: string) {
             coverUrl: release.coverUrl,
             deezerUrl: release.deezerUrl,
             tidalUrl,
-            rawSource: release.raw,
+            rawSource,
             lastSeenAt: new Date(),
           },
         });
@@ -330,7 +471,7 @@ export async function syncArtist(artistId: string, userId?: string) {
           coverUrl: release.coverUrl,
           deezerUrl: release.deezerUrl,
           tidalUrl,
-          rawSource: release.raw,
+          rawSource,
           mappings: {
             create: {
               provider: Provider.DEEZER,
@@ -389,22 +530,14 @@ export async function syncArtist(artistId: string, userId?: string) {
       },
     });
 
-    await prisma.syncJob.update({
-      where: { id: job.id },
-      data: {
-        status: JobStatus.SUCCEEDED,
-        finishedAt: new Date(),
-        message: `Synced ${remoteReleases.length} releases`,
-      },
+    await updateSyncJobLog(job, {
+      status: JobStatus.SUCCEEDED,
+      message: `Synced ${remoteReleases.length} releases`,
     });
   } catch (error) {
-    await prisma.syncJob.update({
-      where: { id: job.id },
-      data: {
-        status: JobStatus.FAILED,
-        finishedAt: new Date(),
-        message: error instanceof Error ? error.message : "Unknown sync failure",
-      },
+    await updateSyncJobLog(job, {
+      status: JobStatus.FAILED,
+      message: error instanceof Error ? error.message : "Unknown sync failure",
     });
     throw error;
   }

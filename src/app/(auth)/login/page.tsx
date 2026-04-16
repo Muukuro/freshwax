@@ -1,9 +1,20 @@
 import { AuthCard } from "@/components/auth-card";
 import { signIn } from "@/app/actions/auth";
+import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
+import { STREAMING_PROVIDERS, getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
 
 const LOGIN_ERRORS: Record<string, string> = {
   credentials: "The email or password is incorrect.",
   invalid: "Enter a valid email address and a password with at least 8 characters.",
+  "external-only": "This account was created through an external provider. Use that sign-in flow instead.",
+  "provider-not-configured": "That provider is not configured on this Freshwax instance yet.",
+  "provider-unavailable": "That provider is visible in the UI, but its login flow is not implemented on this instance yet.",
+  "provider-denied": "The provider login was canceled before Freshwax could finish linking the account.",
+  "provider-missing-code": "The provider did not return an authorization code.",
+  "provider-state": "The provider login state check failed. Start the connection flow again.",
+  "provider-link-required": "That external identity matches an existing account. Link it from Settings while signed in locally first.",
+  "provider-error": "The provider callback failed before Freshwax could finish signing you in.",
+  provider: "Unknown external provider.",
 };
 
 export default async function LoginPage({
@@ -12,6 +23,15 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const externalProviders = STREAMING_PROVIDERS.filter((provider) => getProviderCapability(provider).supportsLogin).map(
+    (provider) => ({
+      label: `Continue with ${getProviderLabel(provider)}`,
+      href: isProviderConfigured(provider) && isExternalAuthImplemented(provider)
+        ? `/api/auth/${provider.toLowerCase()}/connect`
+        : undefined,
+      note: getExternalAuthAvailabilityNote(provider),
+    }),
+  );
 
   return (
     <main className="auth-page">
@@ -49,8 +69,9 @@ export default async function LoginPage({
           footerHref="/signup"
           footerLabel="Create an account"
           footerText="No account yet?"
+          externalProviders={externalProviders}
           passwordAutoComplete="current-password"
-          subtitle="Track release schedules with a private dashboard, background sync jobs, and a calendar feed that works in any calendar app."
+          subtitle="Track release schedules with a private dashboard, background sync jobs, a private calendar feed, and optional platform sign-in alongside local credentials."
           title="Welcome back"
         />
       </div>

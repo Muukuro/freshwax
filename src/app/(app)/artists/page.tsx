@@ -1,4 +1,5 @@
 import { Headphones, Link2, Search } from "lucide-react";
+import { Provider } from "@prisma/client";
 
 import {
   followArtistAction,
@@ -10,9 +11,11 @@ import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
+import { searchCatalogArtists } from "@/lib/catalog";
 import { getFollowedArtists } from "@/lib/data";
-import { isDeezerOAuthConfigured, searchArtists } from "@/lib/providers/deezer";
+import { getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
+import { normalizeName } from "@/lib/utils";
 
 function initialsForArtist(name: string) {
   return name
@@ -31,16 +34,9 @@ export default async function ArtistsPage({
   const followed = await getFollowedArtists(user.id);
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
-  const results = query ? await searchArtists(query) : [];
-  const deezerConfigured = isDeezerOAuthConfigured();
+  const results = query ? await searchCatalogArtists(query) : [];
   const lastfmConfigured = isLastfmConfigured();
-  const followedProviderIds = new Set(
-    followed.flatMap((entry) =>
-      entry.artist.mappings
-        .filter((mapping) => mapping.provider === "DEEZER")
-        .map((mapping) => mapping.providerArtistId),
-    ),
-  );
+  const followedNames = new Set(followed.map((entry) => normalizeName(entry.canonicalName)));
 
   return (
     <div className="space-y-8">
@@ -48,7 +44,7 @@ export default async function ArtistsPage({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Artist search</p>
-            <h2 className="text-3xl font-semibold text-[var(--text)]">Add artists from Deezer</h2>
+            <h2 className="text-3xl font-semibold text-[var(--text)]">Add artists without locking into one platform</h2>
           </div>
         </div>
 
@@ -59,8 +55,8 @@ export default async function ArtistsPage({
               <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">Last.fm top artists</h3>
             </div>
             <p>
-              Import from your saved Last.fm username. Freshwax resolves those artist names into the
-              Deezer catalog, follows exact matches, and queues the usual sync jobs.
+              Import from your saved Last.fm username. Freshwax resolves names into canonical artists
+              first, then adds provider mappings opportunistically.
             </p>
             <div className="panel-muted p-4">
               {user.lastfmConnection ? (
@@ -95,28 +91,29 @@ export default async function ArtistsPage({
             <div>
               <p className="eyebrow">Import source</p>
               <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">
-                Deezer followed artists
+                Streaming platforms
               </h3>
             </div>
             <p>
-              Deezer import still works if you already have a valid Deezer app and a linked account,
-              but it is no longer the only practical way to seed a watchlist.
+              Providers stay visible even when they are config-gated. Connect the ones you use in
+              Settings, then import where account access is available on this instance.
             </p>
-            <div className="panel-muted p-4">
-              {user.deezerConnection ? (
-                <>
-                  Connected as{" "}
-                  <span className="font-medium text-[var(--text)]">
-                    {user.deezerConnection.deezerUserName ??
-                      `User ${user.deezerConnection.deezerUserId}`}
-                  </span>
-                  .
-                </>
-              ) : deezerConfigured ? (
-                "Link Deezer in Settings if you already have working OAuth credentials."
-              ) : (
-                "Deezer OAuth is disabled until DEEZER_APP_ID and DEEZER_APP_SECRET are configured."
-              )}
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[Provider.SPOTIFY, Provider.APPLE_MUSIC, Provider.YOUTUBE_MUSIC, Provider.AMAZON_MUSIC, Provider.TIDAL, Provider.DEEZER].map((provider) => {
+                const capability = getProviderCapability(provider);
+                return (
+                  <div key={provider} className="panel-muted p-3">
+                    <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                      {isProviderConfigured(provider)
+                        ? capability.supportsFollowImport
+                          ? "Import-capable when linked"
+                          : "Visible for login or links only"
+                        : "Not configured by operator"}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
             {user.deezerConnection ? (
               <form action={importDeezerFollowsAction}>
@@ -125,11 +122,6 @@ export default async function ArtistsPage({
                   Import from Deezer
                 </SubmitButton>
               </form>
-            ) : deezerConfigured ? (
-              <a className="ghost-button" href="/api/deezer/connect">
-                <Link2 className="h-4 w-4" />
-                Connect Deezer
-              </a>
             ) : null}
           </article>
         </div>
@@ -148,14 +140,14 @@ export default async function ArtistsPage({
         <div className="space-y-3">
           {query && results.length === 0 ? (
             <EmptyState
-              title="No Deezer matches"
+              title="No catalog matches"
               body="Try a different spelling or a more specific artist name."
             />
           ) : (
             <div className="grid gap-3 xl:grid-cols-2">
               {results.map((artist) => (
                 <article
-                  key={artist.providerArtistId}
+                  key={artist.catalogArtistId}
                   className="panel flex items-center gap-4 px-4 py-4"
                 >
                   <div
@@ -176,28 +168,49 @@ export default async function ArtistsPage({
                       {artist.name}
                     </h3>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                      <span className="status-pill px-2 py-1">
-                        <Headphones className="h-3.5 w-3.5" />
-                        {artist.deezerFans?.toLocaleString() ?? "Unknown"} Deezer listeners
-                      </span>
-                      {artist.deezerUrl ? (
+                      {artist.popularity ? (
+                        <span className="status-pill px-2 py-1">
+                          <Headphones className="h-3.5 w-3.5" />
+                          {artist.popularity.toLocaleString()} Deezer listeners
+                        </span>
+                      ) : null}
+                      {artist.description ? <span>{artist.description}</span> : null}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {artist.platformLinks.slice(0, 4).map((link) => (
                         <PlatformLink
+                          key={`${artist.catalogArtistId}-${link.provider}`}
                           className="text-[var(--muted)] hover:text-[var(--text)]"
                           compact
-                          href={artist.deezerUrl}
-                          label="Deezer"
+                          href={link.href}
+                          label={link.label}
                         />
-                      ) : null}
+                      ))}
                     </div>
                   </div>
-                  {followedProviderIds.has(artist.providerArtistId) ? (
+                  {followedNames.has(normalizeName(artist.name)) ? (
                     <span className="rounded-full border border-emerald-500/30 bg-emerald-500/14 px-3 py-2 text-sm font-medium text-emerald-200 dark:text-emerald-200">
                       Following
                     </span>
                   ) : (
                     <form action={followArtistAction}>
-                      <input name="providerArtistId" type="hidden" value={artist.providerArtistId} />
-                      <input name="query" type="hidden" value={query} />
+                      <input name="catalogArtistId" type="hidden" value={artist.catalogArtistId} />
+                      <input name="artistName" type="hidden" value={artist.name} />
+                      <input
+                        name="providerArtistId"
+                        type="hidden"
+                        value={artist.providerMappings[0]?.providerArtistId ?? ""}
+                      />
+                      <input
+                        name="sourceProvider"
+                        type="hidden"
+                        value={artist.providerMappings[0]?.provider ?? ""}
+                      />
+                      <input
+                        name="providerUrl"
+                        type="hidden"
+                        value={artist.providerMappings[0]?.url ?? ""}
+                      />
                       <SubmitButton className="primary-button" pendingLabel="Adding...">
                         Follow
                       </SubmitButton>
@@ -220,28 +233,11 @@ export default async function ArtistsPage({
 
         {followed.length === 0 ? (
           <EmptyState
-            title="Your watchlist is empty"
-            body="Search for artists on the left or import them from Last.fm or Deezer, then the worker will start collecting release metadata."
+            title="No followed artists yet"
+            body="Use search, import from Last.fm, or connect a platform to seed your watchlist."
           />
         ) : (
-          <ArtistWatchlist
-            followed={followed.map((follow) => ({
-              artistId: follow.artistId,
-              canonicalName: follow.artist.canonicalName,
-              imageUrl: follow.artist.imageUrl,
-              deezerFans: follow.artist.deezerFans,
-              lastSyncedAt: follow.lastSyncedAt ? follow.lastSyncedAt.toISOString() : null,
-              knownReleaseCount: follow.artist._count.releaseArtists,
-              deezerUrl:
-                follow.artist.mappings.find((mapping) => mapping.provider === "DEEZER")?.url ?? null,
-              latestKnownRelease: follow.artist.releaseArtists[0]?.release
-                ? {
-                    title: follow.artist.releaseArtists[0].release.title,
-                    releaseDate: follow.artist.releaseArtists[0].release.releaseDate.toISOString(),
-                  }
-                : null,
-            }))}
-          />
+          <ArtistWatchlist followed={followed} />
         )}
       </section>
     </div>

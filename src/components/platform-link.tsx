@@ -28,6 +28,38 @@ function isLastfmHostname(hostname: string | null) {
   return hostname === "www.last.fm" || hostname === "last.fm";
 }
 
+function faviconOverride(hostname: string | null) {
+  if (isDeezerHostname(hostname)) {
+    return "https://www.deezer.com/favicon.ico";
+  }
+
+  if (isTidalHostname(hostname)) {
+    return "https://listen.tidal.com/favicon.ico";
+  }
+
+  if (isLastfmHostname(hostname)) {
+    return "https://www.last.fm/favicon.ico";
+  }
+
+  if (hostname === "open.spotify.com") {
+    return "https://open.spotify.com/favicon.ico";
+  }
+
+  if (hostname === "music.apple.com") {
+    return "https://music.apple.com/favicon.ico";
+  }
+
+  if (hostname === "music.youtube.com") {
+    return "https://music.youtube.com/favicon.ico";
+  }
+
+  if (hostname === "music.amazon.com") {
+    return "https://music.amazon.com/favicon.ico";
+  }
+
+  return getFaviconUrl(hostname);
+}
+
 export function PlatformLink({
   href,
   label,
@@ -43,13 +75,7 @@ export function PlatformLink({
   const isDeezer = isDeezerHostname(hostname);
   const isTidal = isTidalHostname(hostname);
   const isLastfm = isLastfmHostname(hostname);
-  const faviconUrl = isDeezer
-    ? "https://www.deezer.com/favicon.ico"
-    : isTidal
-      ? "https://listen.tidal.com/favicon.ico"
-      : isLastfm
-        ? "https://www.last.fm/favicon.ico"
-        : getFaviconUrl(hostname);
+  const faviconUrl = faviconOverride(hostname);
 
   return (
     <a

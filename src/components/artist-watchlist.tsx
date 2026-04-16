@@ -7,6 +7,7 @@ import { unfollowArtistAction } from "@/app/actions/follows";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
+import { type PlatformLinkEntry } from "@/lib/data";
 import { normalizeName, releaseDateLabel } from "@/lib/utils";
 
 type ArtistWatchlistEntry = {
@@ -16,20 +17,12 @@ type ArtistWatchlistEntry = {
   deezerFans: number | null;
   lastSyncedAt: string | null;
   knownReleaseCount: number;
-  deezerUrl: string | null;
+  platformLinks: PlatformLinkEntry[];
   latestKnownRelease: {
     title: string;
     releaseDate: string;
   } | null;
 };
-
-function buildLastfmArtistUrl(artistName: string) {
-  return `https://www.last.fm/music/${encodeURIComponent(artistName)}`;
-}
-
-function buildTidalArtistSearchUrl(artistName: string) {
-  return `https://listen.tidal.com/search?q=${encodeURIComponent(artistName)}`;
-}
 
 function initialsForArtist(name: string) {
   return name
@@ -129,26 +122,15 @@ export function ArtistWatchlist({ followed }: { followed: ArtistWatchlistEntry[]
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
-                {follow.deezerUrl ? (
+                {follow.platformLinks.map((link) => (
                   <PlatformLink
+                    key={`${follow.artistId}-${link.provider}`}
                     className="hover:text-[var(--text)]"
                     compact
-                    href={follow.deezerUrl}
-                    label="Deezer"
+                    href={link.href}
+                    label={link.label}
                   />
-                ) : null}
-                <PlatformLink
-                  className="hover:text-[var(--text)]"
-                  compact
-                  href={buildTidalArtistSearchUrl(follow.canonicalName)}
-                  label="TIDAL"
-                />
-                <PlatformLink
-                  className="hover:text-[var(--text)]"
-                  compact
-                  href={buildLastfmArtistUrl(follow.canonicalName)}
-                  label="Last.fm"
-                />
+                ))}
               </div>
 
               <form action={unfollowArtistAction} className="mt-auto">

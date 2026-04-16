@@ -1,14 +1,14 @@
 import { format } from "date-fns";
 
 import { absoluteUrl, releaseTypeLabel } from "@/lib/utils";
+import { type PlatformLinkEntry } from "@/lib/data";
 
 type CalendarRelease = {
   id: string;
   title: string;
   releaseDate: Date;
   type: string;
-  deezerUrl: string | null;
-  tidalUrl: string | null;
+  platformLinks?: PlatformLinkEntry[];
   artists: { artist: { canonicalName: string } }[];
 };
 
@@ -41,8 +41,7 @@ export function buildCalendarFeed(
     const description = [
       `Artist: ${artistNames}`,
       `Type: ${releaseTypeLabel(release.type)}`,
-      release.deezerUrl ? `Deezer: ${release.deezerUrl}` : null,
-      release.tidalUrl ? `TIDAL: ${release.tidalUrl}` : null,
+      ...(release.platformLinks ?? []).map((link) => `${link.label}: ${link.href}`),
       `Open in app: ${absoluteUrl("/upcoming")}`,
     ]
       .filter(Boolean)

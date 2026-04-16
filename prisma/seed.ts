@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
+import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -15,6 +17,7 @@ async function main() {
       name: "Demo Listener",
       timezone: "Europe/Amsterdam",
       passwordHash,
+      onboardingCompletedAt: new Date(),
       settings: {
         create: {},
       },
@@ -30,6 +33,14 @@ async function main() {
     where: { userId: user.id },
     update: {},
     create: { userId: user.id },
+  });
+
+  await prisma.userPlatformPreference.createMany({
+    data: STREAMING_PROVIDERS.map((provider) => ({
+      userId: user.id,
+      ...getDefaultProviderPreference(provider),
+    })),
+    skipDuplicates: true,
   });
 
   console.log("Seeded demo account:", user.email, "password: demo12345");

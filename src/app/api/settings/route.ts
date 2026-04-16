@@ -11,6 +11,7 @@ export async function GET() {
     timezone: user.timezone,
     settings: user.settings,
     calendarToken: user.calendarToken,
+    platformPreferences: user.platformPreferences,
   });
 }
 

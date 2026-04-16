@@ -14,6 +14,7 @@ export function AuthCard({
   footerText,
   includeName = false,
   passwordAutoComplete = "current-password",
+  externalProviders = [],
 }: {
   title: string;
   subtitle: string;
@@ -26,6 +27,11 @@ export function AuthCard({
   footerText: string;
   includeName?: boolean;
   passwordAutoComplete?: React.InputHTMLAttributes<HTMLInputElement>["autoComplete"];
+  externalProviders?: {
+    label: string;
+    href?: string;
+    note?: string;
+  }[];
 }) {
   return (
     <div className="panel mx-auto w-full max-w-md p-8">
@@ -74,6 +80,31 @@ export function AuthCard({
           {ctaLabel}
         </SubmitButton>
       </form>
+
+      {externalProviders.length > 0 ? (
+        <div className="mt-6 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--muted)]">
+            Or continue with
+          </p>
+          <div className="grid gap-3">
+            {externalProviders.map((provider) =>
+              provider.href ? (
+                <Link key={provider.label} className="ghost-button w-full justify-center" href={provider.href}>
+                  {provider.label}
+                </Link>
+              ) : (
+                <div
+                  key={provider.label}
+                  className="ghost-button pointer-events-none w-full justify-center opacity-60"
+                >
+                  {provider.label}
+                  {provider.note ? ` • ${provider.note}` : ""}
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <p className="mt-6 text-sm text-[var(--muted)]">
         {footerText}{" "}

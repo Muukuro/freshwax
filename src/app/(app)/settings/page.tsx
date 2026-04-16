@@ -1,40 +1,76 @@
 import { Copy, Link2, RotateCw, Unplug } from "lucide-react";
+import { Provider } from "@prisma/client";
+import Link from "next/link";
 
 import { importDeezerFollowsAction, importLastfmArtistsAction } from "@/app/actions/follows";
 import {
+  disconnectAppleMusicAction,
   disconnectDeezerAction,
   disconnectLastfmAction,
+  disconnectSpotifyAction,
+  disconnectTidalAction,
   rotateCalendarTokenAction,
   saveLastfmUsernameAction,
   updateSettingsAction,
 } from "@/app/actions/settings";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
-import { isDeezerOAuthConfigured } from "@/lib/providers/deezer";
-import { isLastfmConfigured } from "@/lib/providers/lastfm";
+import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { absoluteUrl } from "@/lib/utils";
+import {
+  STREAMING_PROVIDERS,
+  getProviderAvailabilityNote,
+  getProviderCapability,
+  getProviderLabel,
+  isProviderConfigured,
+} from "@/lib/platforms";
+import { isLastfmConfigured } from "@/lib/providers/lastfm";
 
-const deezerStatusText: Record<string, string> = {
-  connected: "Deezer account connected. You can import your followed artists now.",
-  denied: "Deezer authorization was canceled before the account could be linked.",
-  "not-configured": "Add Deezer app credentials in the environment before connecting an account.",
-  "state-mismatch": "The Deezer OAuth state check failed. Start the connection flow again.",
-  "missing-code": "Deezer did not return an authorization code.",
-  "already-linked": "That Deezer account is already linked to another local user.",
-  error: "The Deezer callback failed before the account could be linked.",
-};
+function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provider: Provider) {
+  switch (provider) {
+    case Provider.DEEZER:
+      return user.deezerConnection
+        ? user.deezerConnection.deezerUserName ?? `User ${user.deezerConnection.deezerUserId}`
+        : null;
+    case Provider.SPOTIFY:
+      return user.spotifyConnection
+        ? user.spotifyConnection.spotifyUserName ?? `User ${user.spotifyConnection.spotifyUserId}`
+        : null;
+    case Provider.TIDAL:
+      return user.tidalConnection
+        ? user.tidalConnection.tidalUserName ?? `User ${user.tidalConnection.tidalUserId}`
+        : null;
+    case Provider.APPLE_MUSIC:
+      return user.appleMusicConnection
+        ? user.appleMusicConnection.storefront ?? "Connected via MusicKit"
+        : null;
+    default:
+      return user.externalIdentities.find((identity) => identity.provider === provider)?.displayName ?? null;
+  }
+}
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ deezer?: string }>;
-}) {
+function disconnectActionFor(provider: Provider) {
+  switch (provider) {
+    case Provider.DEEZER:
+      return disconnectDeezerAction;
+    case Provider.SPOTIFY:
+      return disconnectSpotifyAction;
+    case Provider.TIDAL:
+      return disconnectTidalAction;
+    case Provider.APPLE_MUSIC:
+      return disconnectAppleMusicAction;
+    default:
+      return null;
+  }
+}
+
+export default async function SettingsPage() {
   const user = await requireUser();
-  const params = await searchParams;
   const calendarUrl = absoluteUrl(`/calendar/${user.calendarToken?.token ?? ""}.ics`);
-  const deezerConfigured = isDeezerOAuthConfigured();
   const lastfmConfigured = isLastfmConfigured();
-  const deezerStatus = params.deezer ? deezerStatusText[params.deezer] : null;
+  const preferenceByProvider = new Map(
+    user.platformPreferences.map((preference) => [preference.provider, preference]),
+  );
 
   return (
     <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
@@ -67,9 +103,6 @@ export default async function SettingsPage({
           </label>
           <div className="field gap-3">
             <span>Release types</span>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Turn off singles to keep upcoming and discovery feeds focused on full-length releases.
-            </p>
             <label className="check">
               <input
                 defaultChecked={user.settings?.includeSingles ?? true}
@@ -112,12 +145,79 @@ export default async function SettingsPage({
             </label>
             <label className="check">
               <input
+                defaultChecked={user.settings?.hideClassicalComposerAppearances ?? true}
+                name="hideClassicalComposerAppearances"
+                type="checkbox"
+              />
+              Hide classical composer appearances
+            </label>
+            <label className="check">
+              <input
                 defaultChecked={user.settings?.hideIgnored ?? true}
                 name="hideIgnored"
                 type="checkbox"
               />
               Hide ignored items from feeds and calendar
             </label>
+          </div>
+
+          <div className="field md:col-span-2 gap-4">
+            <span>Favorite platforms and link visibility</span>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {STREAMING_PROVIDERS.map((provider, index) => {
+                const preference = preferenceByProvider.get(provider);
+                const capability = getProviderCapability(provider);
+
+                return (
+                  <div key={provider} className="panel-muted space-y-3 p-4">
+                    <div>
+                      <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
+                      <p className="text-sm leading-6 text-[var(--muted)]">
+                        {getProviderAvailabilityNote(provider)}
+                      </p>
+                    </div>
+                    <input
+                      defaultValue={preference?.favoriteRank ?? index + 1}
+                      name={`favoriteRank:${provider}`}
+                      type="hidden"
+                    />
+                    <label className="check">
+                      <input
+                        defaultChecked={preference?.isFavorite ?? false}
+                        name={`favorite:${provider}`}
+                        type="checkbox"
+                      />
+                      Favorite platform
+                    </label>
+                    <label className="check">
+                      <input
+                        defaultChecked={preference?.allowImport ?? capability.supportsFollowImport}
+                        disabled={!capability.supportsFollowImport}
+                        name={`allowImport:${provider}`}
+                        type="checkbox"
+                      />
+                      Allow followed-artist import
+                    </label>
+                    <label className="check">
+                      <input
+                        defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks}
+                        name={`showArtistLinks:${provider}`}
+                        type="checkbox"
+                      />
+                      Show artist links
+                    </label>
+                    <label className="check">
+                      <input
+                        defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks}
+                        name={`showReleaseLinks:${provider}`}
+                        type="checkbox"
+                      />
+                      Show release links
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="md:col-span-2">
@@ -130,25 +230,86 @@ export default async function SettingsPage({
 
       <section className="space-y-4">
         <article className="panel">
-          <p className="eyebrow">Import sources</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Seed your watchlist</h2>
+          <p className="eyebrow">Onboarding</p>
+          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Re-run your platform setup</h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Import sources only add artists into your local watchlist. After that, Freshwax keeps
-            using Deezer for artist search and release metadata sync.
+            Need to re-think favorites, import defaults, or link visibility from a clean slate? Run the
+            onboarding save flow again with your current choices.
           </p>
+          <div className="mt-4">
+            <Link className="ghost-button" href="/onboarding">
+              Open onboarding again
+            </Link>
+          </div>
+        </article>
+
+        <article className="panel">
+          <p className="eyebrow">Import sources</p>
+          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Connect or gate platforms</h2>
+          <div className="mt-6 space-y-4">
+            {STREAMING_PROVIDERS.map((provider) => {
+              const capability = getProviderCapability(provider);
+              const connectedAs = connectionSummary(user, provider);
+              const disconnectAction = disconnectActionFor(provider);
+
+              return (
+                <article key={provider} className="panel-muted space-y-4 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-semibold text-[var(--text)]">
+                        {getProviderLabel(provider)}
+                      </h3>
+                      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                        {capability.description}
+                      </p>
+                    </div>
+                    <span className="status-pill px-2 py-1 text-xs">
+                      {connectedAs
+                        ? `Connected as ${connectedAs}`
+                        : capability.supportsLogin
+                          ? getExternalAuthAvailabilityNote(provider)
+                          : getProviderAvailabilityNote(provider)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {capability.supportsLogin &&
+                    isProviderConfigured(provider) &&
+                    isExternalAuthImplemented(provider) ? (
+                      <a className="ghost-button" href={`/api/auth/${provider.toLowerCase()}/connect`}>
+                        <Link2 className="h-4 w-4" />
+                        {connectedAs ? "Reconnect" : `Connect ${getProviderLabel(provider)}`}
+                      </a>
+                    ) : null}
+
+                    {provider === Provider.DEEZER && user.deezerConnection ? (
+                      <form action={importDeezerFollowsAction}>
+                        <SubmitButton className="primary-button" pendingLabel="Importing...">
+                          Import followed artists
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+
+                    {disconnectAction && connectedAs ? (
+                      <form action={disconnectAction}>
+                        <SubmitButton className="ghost-button" pendingLabel="Disconnecting...">
+                          <Unplug className="h-4 w-4" />
+                          Disconnect
+                        </SubmitButton>
+                      </form>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </article>
 
         <article className="panel">
           <p className="eyebrow">Last.fm</p>
           <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">
-            Import artists above your listen threshold
+            Username-based import sidecar
           </h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Save a public Last.fm username and a minimum listen count. The importer only auto-follows
-            artists whose Last.fm playcount meets that threshold and resolve to an exact normalized
-            Deezer name match.
-          </p>
-
           <form action={saveLastfmUsernameAction} className="mt-6 space-y-4">
             <label className="field">
               <span>Last.fm username</span>
@@ -176,37 +337,10 @@ export default async function SettingsPage({
             </SubmitButton>
           </form>
 
-          <div className="panel-muted mt-6 p-4 text-sm text-[var(--muted)]">
-            {user.lastfmConnection ? (
-              <>
-                Username{" "}
-                <span className="font-medium text-[var(--text)]">
-                  {user.lastfmConnection.lastfmUserName}
-                </span>
-                . Importing artists with at least{" "}
-                <span className="font-medium text-[var(--text)]">
-                  {user.lastfmConnection.importMinPlaycount}
-                </span>{" "}
-                listens. Last imported{" "}
-                {user.lastfmConnection.lastImportedAt
-                  ? user.lastfmConnection.lastImportedAt.toLocaleString()
-                  : "never"}
-                .
-              </>
-            ) : lastfmConfigured ? (
-              "No Last.fm username is saved yet."
-            ) : (
-              "Last.fm import is disabled until LASTFM_API_KEY is configured."
-            )}
-          </div>
-
           {user.lastfmConnection ? (
             <div className="mt-4 flex flex-wrap gap-3">
               <form action={importLastfmArtistsAction}>
-                <SubmitButton
-                  className={`primary-button ${lastfmConfigured ? "" : "pointer-events-none opacity-60"}`}
-                  pendingLabel="Importing..."
-                >
+                <SubmitButton className="ghost-button" pendingLabel="Importing...">
                   <Link2 className="h-4 w-4" />
                   Import from Last.fm
                 </SubmitButton>
@@ -222,80 +356,11 @@ export default async function SettingsPage({
         </article>
 
         <article className="panel">
-          <p className="eyebrow">Deezer</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Optional followed-artist import</h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Link an optional Deezer account to pull your current followed artists into the local
-            watchlist when you already have a working Deezer app. Imported artists still sync through
-            the app&apos;s existing worker pipeline.
-          </p>
-
-          {deezerStatus ? (
-            <div className="mt-6 rounded-[0.9rem] border border-[rgba(45,109,246,0.16)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--text)]">
-              {deezerStatus}
-            </div>
-          ) : null}
-
-          <div className="panel-muted mt-6 p-4 text-sm text-[var(--muted)]">
-            {user.deezerConnection ? (
-              <>
-                Connected as{" "}
-                <span className="font-medium text-[var(--text)]">
-                  {user.deezerConnection.deezerUserName ?? `User ${user.deezerConnection.deezerUserId}`}
-                </span>
-                . Last imported{" "}
-                {user.deezerConnection.lastImportedAt
-                  ? user.deezerConnection.lastImportedAt.toLocaleString()
-                  : "never"}
-                .
-              </>
-            ) : deezerConfigured ? (
-              "No Deezer account is linked yet."
-            ) : (
-              "Deezer OAuth is disabled until DEEZER_APP_ID and DEEZER_APP_SECRET are configured."
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-3">
-            {user.deezerConnection ? (
-              <>
-                <form action={importDeezerFollowsAction}>
-                  <SubmitButton className="primary-button" pendingLabel="Importing...">
-                    <Link2 className="h-4 w-4" />
-                    Import followed artists
-                  </SubmitButton>
-                </form>
-                <form action={disconnectDeezerAction}>
-                  <SubmitButton className="ghost-button" pendingLabel="Disconnecting...">
-                    <Unplug className="h-4 w-4" />
-                    Disconnect Deezer
-                  </SubmitButton>
-                </form>
-              </>
-            ) : (
-              <a
-                className={`primary-button ${deezerConfigured ? "" : "pointer-events-none opacity-60"}`}
-                href={deezerConfigured ? "/api/deezer/connect" : undefined}
-              >
-                <Link2 className="h-4 w-4" />
-                Connect Deezer
-              </a>
-            )}
-          </div>
-        </article>
-
-        <article className="panel">
           <p className="eyebrow">Private iCalendar feed</p>
           <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Use in any calendar client</h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            The URL below is tokenized and private. It only includes upcoming releases for artists you
-            currently follow.
-          </p>
-
           <div className="panel-muted mt-6 p-4">
             <code className="block overflow-x-auto text-sm text-[var(--accent-strong)]">{calendarUrl}</code>
           </div>
-
           <div className="mt-4 flex flex-wrap gap-3">
             <a className="ghost-button" href={calendarUrl}>
               <Copy className="h-4 w-4" />
@@ -308,17 +373,6 @@ export default async function SettingsPage({
               </SubmitButton>
             </form>
           </div>
-        </article>
-
-        <article className="panel">
-          <p className="eyebrow">Operational notes</p>
-          <ul className="space-y-3 text-sm leading-7 text-[var(--muted)]">
-            <li>The worker schedules periodic sync jobs in Redis with BullMQ.</li>
-            <li>Deezer powers search and release metadata collection.</li>
-            <li>Last.fm import uses a public username plus an operator-supplied API key.</li>
-            <li>Optional Deezer account linking imports followed artists when existing OAuth credentials are available.</li>
-            <li>TIDAL URLs are generated as search links when exact cross-provider IDs are unavailable.</li>
-          </ul>
         </article>
       </section>
     </div>
