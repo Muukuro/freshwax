@@ -238,16 +238,27 @@ input {
   box-shadow: 0 24px 56px rgba(14, 33, 52, 0.18);
 }
 
+.hero-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .hero-card::after {
   content: "";
   position: absolute;
-  inset: auto -3rem -3rem auto;
-  width: 16rem;
-  height: 16rem;
-  border-radius: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, rgba(215, 255, 100, 0.34), rgba(255, 255, 255, 0));
-  transform: rotate(18deg);
+  inset: auto -4.5rem -4.5rem auto;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 0;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.5) 0% 4%, transparent 4% 6.5%),
+    radial-gradient(circle at center, rgba(215, 255, 100, 0.3) 6.5% 20%, rgba(215, 255, 100, 0.06) 20% 22.5%, transparent 22.5%),
+    radial-gradient(circle at center, transparent 32%, rgba(255, 255, 255, 0.04) 32% 33.5%, transparent 33.5%),
+    radial-gradient(circle at center, transparent 48%, rgba(255, 255, 255, 0.03) 48% 49.5%, transparent 49.5%),
+    radial-gradient(circle at center, transparent 65%, rgba(255, 255, 255, 0.02) 65% 66.5%, transparent 66.5%),
+    radial-gradient(circle at center, rgba(8, 18, 32, 0.38) 0%, rgba(4, 10, 20, 0.48) 100%);
 }
 
 .eyebrow {
@@ -287,7 +298,7 @@ input {
   background: var(--signal);
   color: var(--signal-strong);
   font-weight: 700;
-  padding: 0.9rem 1.2rem;
+  padding: 0.85rem 1.2rem;
   box-shadow: 0 10px 22px rgba(36, 58, 17, 0.18);
 }
 
@@ -396,7 +407,7 @@ input {
   font-weight: 600;
 }
 
-.field input {
+.field input:not([type="checkbox"]) {
   width: 100%;
   border: 1px solid var(--field-border);
   background: var(--field-bg);
@@ -410,20 +421,20 @@ input {
     background-color 180ms ease;
 }
 
-.field input:focus {
+.field input:not([type="checkbox"]):focus {
   border-color: rgba(45, 109, 246, 0.4);
   box-shadow: 0 0 0 4px rgba(45, 109, 246, 0.12);
   background: var(--field-bg-focus);
 }
 
-.field input::placeholder {
+.field input:not([type="checkbox"])::placeholder {
   color: var(--field-placeholder);
   opacity: 1;
 }
 
-.field input:-webkit-autofill,
-.field input:-webkit-autofill:hover,
-.field input:-webkit-autofill:focus {
+.field input:not([type="checkbox"]):-webkit-autofill,
+.field input:not([type="checkbox"]):-webkit-autofill:hover,
+.field input:not([type="checkbox"]):-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text);
   -webkit-box-shadow: 0 0 0 1000px var(--field-bg-focus) inset;
   caret-color: var(--text);
@@ -554,7 +565,7 @@ input {
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--ghost-bg);
 }
 
 .platform-link--compact .platform-link__icon {
@@ -563,29 +574,18 @@ input {
   overflow: hidden;
 }
 
-.platform-link__icon--deezer {
-  background: #0a0a0f;
-  border-color: rgba(10, 10, 15, 0.55);
+.platform-link__icon--spotify,
+.platform-link__icon--applemusic,
+.platform-link__icon--youtubemusic,
+.platform-link__icon--amazonmusic,
+.platform-link__icon--deezer,
+.platform-link__icon--lastfm {
   padding: 0.18rem;
 }
 
 .platform-link__icon--tidal {
-  background: #0a0a0f;
-  border-color: rgba(10, 10, 15, 0.55);
-}
-
-.platform-link__icon--lastfm {
-  background: #b90018;
-  border-color: rgba(120, 8, 18, 0.55);
-}
-
-.platform-link__favicon {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
+  background: #000;
+  padding: 0.2rem;
 }
 
 .auth-page {
@@ -616,16 +616,27 @@ input {
   box-shadow: 0 24px 56px rgba(14, 33, 52, 0.16);
 }
 
+.auth-promo > * {
+  position: relative;
+  z-index: 1;
+}
+
 .auth-promo::after {
   content: "";
   position: absolute;
-  inset: auto -2rem -2rem auto;
-  width: 10rem;
-  height: 10rem;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(135deg, rgba(215, 255, 100, 0.34), rgba(255, 255, 255, 0));
-  transform: rotate(14deg);
+  inset: auto -3rem -3rem auto;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 0;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.5) 0% 4%, transparent 4% 6.5%),
+    radial-gradient(circle at center, rgba(215, 255, 100, 0.3) 6.5% 20%, rgba(215, 255, 100, 0.06) 20% 22.5%, transparent 22.5%),
+    radial-gradient(circle at center, transparent 32%, rgba(255, 255, 255, 0.04) 32% 33.5%, transparent 33.5%),
+    radial-gradient(circle at center, transparent 48%, rgba(255, 255, 255, 0.03) 48% 49.5%, transparent 49.5%),
+    radial-gradient(circle at center, transparent 65%, rgba(255, 255, 255, 0.02) 65% 66.5%, transparent 66.5%),
+    radial-gradient(circle at center, rgba(8, 18, 32, 0.38) 0%, rgba(4, 10, 20, 0.48) 100%);
 }
 
 button:disabled,

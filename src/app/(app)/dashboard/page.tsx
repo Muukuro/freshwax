@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, Sparkles, Users } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
@@ -39,16 +39,19 @@ export default async function DashboardPage() {
           label="Followed artists"
           value={String(data.followedArtistsCount)}
           detail="Artists with active background sync coverage."
+          icon={Users}
         />
         <StatsCard
           label="Upcoming releases"
           value={String(data.upcoming.length)}
           detail={`Within your ${data.settings.futureHorizonDays}-day calendar horizon.`}
+          icon={CalendarDays}
         />
         <StatsCard
           label="Recent discoveries"
           value={String(data.discoveredReleasesCount)}
           detail={`Found in the last ${data.settings.discoveryWindowDays} days after you started tracking them.`}
+          icon={Sparkles}
         />
       </section>
 

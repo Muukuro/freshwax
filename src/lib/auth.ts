@@ -117,17 +117,14 @@ export async function getCurrentUser() {
 }
 
 export async function getPostAuthRedirect(userId: string) {
-  const [followCount, user] = await Promise.all([
-    prisma.userFollow.count({ where: { userId } }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        onboardingCompletedAt: true,
-      },
-    }),
-  ]);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      onboardingCompletedAt: true,
+    },
+  });
 
-  if (!user?.onboardingCompletedAt || followCount === 0) {
+  if (!user?.onboardingCompletedAt) {
     return "/onboarding";
   }
 
@@ -136,11 +133,8 @@ export async function getPostAuthRedirect(userId: string) {
 
 export async function requireOnboardedUser() {
   const user = await requireUser();
-  const followCount = await prisma.userFollow.count({
-    where: { userId: user.id },
-  });
 
-  if (!user.onboardingCompletedAt || followCount === 0) {
+  if (!user.onboardingCompletedAt) {
     redirect("/onboarding");
   }
 

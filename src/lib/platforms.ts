@@ -163,6 +163,34 @@ export function getProviderAvailabilityNote(provider: StreamingProvider) {
   return "Available on this instance";
 }
 
+export function buildArtistDeepLink(provider: Provider, providerArtistId: string): string | null {
+  switch (provider) {
+    case Provider.SPOTIFY:
+      return `https://open.spotify.com/artist/${providerArtistId}`;
+    case Provider.DEEZER:
+      return `https://www.deezer.com/artist/${providerArtistId}`;
+    case Provider.TIDAL:
+      return `https://listen.tidal.com/artist/${providerArtistId}`;
+    case Provider.YOUTUBE_MUSIC:
+      return `https://music.youtube.com/channel/${providerArtistId}`;
+    default:
+      return null;
+  }
+}
+
+export function buildReleaseDeepLink(provider: Provider, providerReleaseId: string): string | null {
+  switch (provider) {
+    case Provider.SPOTIFY:
+      return `https://open.spotify.com/album/${providerReleaseId}`;
+    case Provider.DEEZER:
+      return `https://www.deezer.com/album/${providerReleaseId}`;
+    case Provider.TIDAL:
+      return `https://listen.tidal.com/album/${providerReleaseId}`;
+    default:
+      return null;
+  }
+}
+
 export function buildArtistSearchUrl(provider: Provider, artistName: string) {
   const query = encodeURIComponent(artistName);
 

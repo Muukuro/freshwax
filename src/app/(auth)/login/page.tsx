@@ -2,6 +2,7 @@ import { AuthCard } from "@/components/auth-card";
 import { signIn } from "@/app/actions/auth";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { STREAMING_PROVIDERS, getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
+import { PlatformIcon } from "@/components/platform-link";
 
 const LOGIN_ERRORS: Record<string, string> = {
   credentials: "The email or password is incorrect.",
@@ -23,13 +24,14 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
-  const externalProviders = STREAMING_PROVIDERS.filter((provider) => getProviderCapability(provider).supportsLogin).map(
+  const externalProviders = STREAMING_PROVIDERS.filter((provider) => getProviderCapability(provider).supportsLogin && isProviderConfigured(provider)).map(
     (provider) => ({
       label: `Continue with ${getProviderLabel(provider)}`,
       href: isProviderConfigured(provider) && isExternalAuthImplemented(provider)
         ? `/api/auth/${provider.toLowerCase()}/connect`
         : undefined,
       note: getExternalAuthAvailabilityNote(provider),
+      icon: <PlatformIcon provider={provider} size="sm" />,
     }),
   );
 
@@ -38,25 +40,23 @@ export default async function LoginPage({
       <div className="auth-grid">
         <section className="auth-promo hidden md:flex md:flex-col md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--signal)]">
-              Private listening desk
-            </p>
-            <h1 className="font-display mt-4 max-w-lg text-6xl leading-[0.92] tracking-[-0.05em] text-white">
-              Catch the records you care about before the algorithm buries them.
+            <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-white">Freshwax</p>
+            <h1 className="font-display mt-6 max-w-lg text-6xl leading-[0.92] tracking-[-0.05em] text-white">
+              Catch the records you care about before they slip by.
             </h1>
             <p className="mt-5 max-w-xl text-base leading-8 text-blue-100/78">
-              Follow artists, spot late discoveries, and pipe upcoming dates into your own calendar
-              from a dashboard that feels like a tool, not a splash page.
+              Follow artists you actually love, see what&apos;s dropping, and get upcoming releases
+              straight into your calendar — no algorithm deciding what&apos;s worth your attention.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-[0.9rem] border border-white/12 bg-white/8 p-4 backdrop-blur-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">Sync</p>
-              <p className="mt-2 text-lg font-semibold text-white">Worker-backed updates</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">Watchlist</p>
+              <p className="mt-2 text-lg font-semibold text-white">Artists you follow, nothing more</p>
             </div>
             <div className="rounded-[0.9rem] border border-white/12 bg-white/8 p-4 backdrop-blur-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">Calendar</p>
-              <p className="mt-2 text-lg font-semibold text-white">Private `.ics` feed</p>
+              <p className="mt-2 text-lg font-semibold text-white">Release dates in any calendar app</p>
             </div>
           </div>
         </section>
@@ -71,7 +71,7 @@ export default async function LoginPage({
           footerText="No account yet?"
           externalProviders={externalProviders}
           passwordAutoComplete="current-password"
-          subtitle="Track release schedules with a private dashboard, background sync jobs, a private calendar feed, and optional platform sign-in alongside local credentials."
+          subtitle="Your artist watchlist, upcoming releases, and a private calendar feed — all on an instance you control."
           title="Welcome back"
         />
       </div>

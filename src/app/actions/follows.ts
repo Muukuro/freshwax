@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { Provider } from "@prisma/client";
 
@@ -9,6 +10,7 @@ import {
   followArtistForUser,
   importDeezerFollowedArtistsForUser,
   importLastfmTopArtistsForUser,
+  importTidalFollowedArtistsForUser,
   syncArtist,
   unfollowArtistForUser,
 } from "@/lib/sync";
@@ -61,11 +63,18 @@ export async function unfollowArtistAction(formData: FormData) {
   revalidatePath("/discoveries");
 }
 
-export async function importDeezerFollowsAction() {
+export type ImportResult =
+  | { ok: true; started: true }
+  | { ok: false; error: string };
+
+export async function importDeezerFollowsAction(
+  _prevState: ImportResult | null,
+  _formData: FormData,
+): Promise<ImportResult> {
   const user = await requireUser();
 
   if (!isDeezerOAuthConfigured()) {
-    throw new Error("Deezer OAuth is not configured");
+    return { ok: false, error: "Deezer OAuth is not configured" };
   }
 
   const connection = await prisma.deezerConnection.findUnique({
@@ -73,34 +82,71 @@ export async function importDeezerFollowsAction() {
   });
 
   if (!connection) {
-    throw new Error("Connect your Deezer account before importing artists");
+    return { ok: false, error: "Connect your Deezer account before importing artists" };
   }
 
   if (connection.expiresAt && connection.expiresAt <= new Date()) {
-    throw new Error("Your Deezer connection has expired. Reconnect the account and try again.");
+    return { ok: false, error: "Your Deezer connection has expired. Reconnect the account and try again." };
   }
 
-  await importDeezerFollowedArtistsForUser(user.id, connection.accessToken);
-
-  await prisma.deezerConnection.update({
-    where: { userId: user.id },
-    data: {
-      lastImportedAt: new Date(),
-    },
+  after(async () => {
+    await importDeezerFollowedArtistsForUser(user.id, connection.accessToken);
+    await prisma.deezerConnection.update({
+      where: { userId: user.id },
+      data: { lastImportedAt: new Date() },
+    });
+    revalidatePath("/artists");
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/upcoming");
+    revalidatePath("/discoveries");
   });
 
-  revalidatePath("/artists");
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
-  revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  return { ok: true, started: true };
 }
 
-export async function importLastfmArtistsAction() {
+export async function importTidalFollowsAction(
+  _prevState: ImportResult | null,
+  _formData: FormData,
+): Promise<ImportResult> {
+  const user = await requireUser();
+
+  const connection = await prisma.tidalConnection.findUnique({
+    where: { userId: user.id },
+  });
+
+  if (!connection) {
+    return { ok: false, error: "Connect your TIDAL account before importing artists" };
+  }
+
+  if (connection.expiresAt && connection.expiresAt <= new Date()) {
+    return { ok: false, error: "Your TIDAL connection has expired. Reconnect the account and try again." };
+  }
+
+  after(async () => {
+    await importTidalFollowedArtistsForUser(user.id, connection.accessToken);
+    await prisma.tidalConnection.update({
+      where: { userId: user.id },
+      data: { lastImportedAt: new Date() },
+    });
+    revalidatePath("/artists");
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/upcoming");
+    revalidatePath("/discoveries");
+  });
+
+  return { ok: true, started: true };
+}
+
+export async function importLastfmArtistsAction(
+  _prevState: ImportResult | null,
+  _formData: FormData,
+): Promise<ImportResult> {
   const user = await requireUser();
 
   if (!isLastfmConfigured()) {
-    throw new Error("Last.fm import is not configured");
+    return { ok: false, error: "Last.fm import is not configured" };
   }
 
   const connection = await prisma.lastfmConnection.findUnique({
@@ -108,27 +154,27 @@ export async function importLastfmArtistsAction() {
   });
 
   if (!connection) {
-    throw new Error("Save your Last.fm username before importing artists");
+    return { ok: false, error: "Save your Last.fm username before importing artists" };
   }
 
-  await importLastfmTopArtistsForUser(
-    user.id,
-    connection.lastfmUserName,
-    connection.importMinPlaycount,
-  );
-
-  await prisma.lastfmConnection.update({
-    where: { userId: user.id },
-    data: {
-      lastImportedAt: new Date(),
-    },
+  after(async () => {
+    await importLastfmTopArtistsForUser(
+      user.id,
+      connection.lastfmUserName,
+      connection.importMinPlaycount,
+    );
+    await prisma.lastfmConnection.update({
+      where: { userId: user.id },
+      data: { lastImportedAt: new Date() },
+    });
+    revalidatePath("/artists");
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/upcoming");
+    revalidatePath("/discoveries");
   });
 
-  revalidatePath("/artists");
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
-  revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  return { ok: true, started: true };
 }
 
 export async function ignoreReleaseAction(formData: FormData) {

@@ -8,7 +8,8 @@ import {
 } from "@/app/actions/follows";
 import { ArtistWatchlist } from "@/components/artist-watchlist";
 import { EmptyState } from "@/components/empty-state";
-import { PlatformLink } from "@/components/platform-link";
+import { ImportForm } from "@/components/import-form";
+import { PlatformIcon, PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
 import { searchCatalogArtists } from "@/lib/catalog";
@@ -78,12 +79,11 @@ export default async function ArtistsPage({
               )}
             </div>
             {user.lastfmConnection ? (
-              <form action={importLastfmArtistsAction}>
-                <SubmitButton className="ghost-button" pendingLabel="Importing...">
-                  <Link2 className="h-4 w-4" />
-                  Import from Last.fm
-                </SubmitButton>
-              </form>
+              <ImportForm
+                action={importLastfmArtistsAction}
+                label="Import from Last.fm"
+                className="ghost-button"
+              />
             ) : null}
           </article>
 
@@ -103,7 +103,10 @@ export default async function ArtistsPage({
                 const capability = getProviderCapability(provider);
                 return (
                   <div key={provider} className="panel-muted p-3">
-                    <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
+                    <div className="flex items-center gap-2">
+                      <PlatformIcon provider={provider} size="sm" />
+                      <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
+                    </div>
                     <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
                       {isProviderConfigured(provider)
                         ? capability.supportsFollowImport
@@ -116,12 +119,11 @@ export default async function ArtistsPage({
               })}
             </div>
             {user.deezerConnection ? (
-              <form action={importDeezerFollowsAction}>
-                <SubmitButton className="ghost-button" pendingLabel="Importing...">
-                  <Link2 className="h-4 w-4" />
-                  Import from Deezer
-                </SubmitButton>
-              </form>
+              <ImportForm
+                action={importDeezerFollowsAction}
+                label="Import from Deezer"
+                className="ghost-button"
+              />
             ) : null}
           </article>
         </div>

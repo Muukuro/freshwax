@@ -1,4 +1,15 @@
 import { ExternalLink, Globe2 } from "lucide-react";
+import { Provider } from "@prisma/client";
+
+import {
+  AmazonMusicIcon,
+  AppleMusicIcon,
+  DeezerIcon,
+  LastfmIcon,
+  SpotifyIcon,
+  TidalIcon,
+  YouTubeMusicIcon,
+} from "@/components/platform-icons";
 
 function getHostname(href: string) {
   try {
@@ -8,56 +19,76 @@ function getHostname(href: string) {
   }
 }
 
-function getFaviconUrl(hostname: string | null) {
-  if (!hostname) {
-    return null;
-  }
+type PlatformMatch = {
+  iconClass: string;
+  Icon: () => React.ReactElement;
+};
 
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`;
-}
-
-function isDeezerHostname(hostname: string | null) {
-  return hostname === "deezer.com" || hostname === "www.deezer.com";
-}
-
-function isTidalHostname(hostname: string | null) {
-  return hostname === "listen.tidal.com" || hostname === "tidal.com" || hostname === "www.tidal.com";
-}
-
-function isLastfmHostname(hostname: string | null) {
-  return hostname === "www.last.fm" || hostname === "last.fm";
-}
-
-function faviconOverride(hostname: string | null) {
-  if (isDeezerHostname(hostname)) {
-    return "https://www.deezer.com/favicon.ico";
-  }
-
-  if (isTidalHostname(hostname)) {
-    return "https://listen.tidal.com/favicon.ico";
-  }
-
-  if (isLastfmHostname(hostname)) {
-    return "https://www.last.fm/favicon.ico";
-  }
+function matchHostname(hostname: string | null): PlatformMatch | null {
+  if (!hostname) return null;
 
   if (hostname === "open.spotify.com") {
-    return "https://open.spotify.com/favicon.ico";
+    return { iconClass: "platform-link__icon--spotify", Icon: SpotifyIcon };
   }
-
   if (hostname === "music.apple.com") {
-    return "https://music.apple.com/favicon.ico";
+    return { iconClass: "platform-link__icon--applemusic", Icon: AppleMusicIcon };
   }
-
   if (hostname === "music.youtube.com") {
-    return "https://music.youtube.com/favicon.ico";
+    return { iconClass: "platform-link__icon--youtubemusic", Icon: YouTubeMusicIcon };
   }
-
   if (hostname === "music.amazon.com") {
-    return "https://music.amazon.com/favicon.ico";
+    return { iconClass: "platform-link__icon--amazonmusic", Icon: AmazonMusicIcon };
+  }
+  if (hostname === "listen.tidal.com" || hostname === "tidal.com" || hostname === "www.tidal.com") {
+    return { iconClass: "platform-link__icon--tidal", Icon: TidalIcon };
+  }
+  if (hostname === "deezer.com" || hostname === "www.deezer.com") {
+    return { iconClass: "platform-link__icon--deezer", Icon: DeezerIcon };
+  }
+  if (hostname === "www.last.fm" || hostname === "last.fm") {
+    return { iconClass: "platform-link__icon--lastfm", Icon: LastfmIcon };
   }
 
-  return getFaviconUrl(hostname);
+  return null;
+}
+
+function providerIconClass(provider: Provider): string {
+  switch (provider) {
+    case Provider.SPOTIFY: return "platform-link__icon--spotify";
+    case Provider.APPLE_MUSIC: return "platform-link__icon--applemusic";
+    case Provider.YOUTUBE_MUSIC: return "platform-link__icon--youtubemusic";
+    case Provider.AMAZON_MUSIC: return "platform-link__icon--amazonmusic";
+    case Provider.TIDAL: return "platform-link__icon--tidal";
+    case Provider.DEEZER: return "platform-link__icon--deezer";
+    default: return "";
+  }
+}
+
+function providerIconComponent(provider: Provider): () => React.ReactElement {
+  switch (provider) {
+    case Provider.SPOTIFY: return SpotifyIcon;
+    case Provider.APPLE_MUSIC: return AppleMusicIcon;
+    case Provider.YOUTUBE_MUSIC: return YouTubeMusicIcon;
+    case Provider.AMAZON_MUSIC: return AmazonMusicIcon;
+    case Provider.TIDAL: return TidalIcon;
+    case Provider.DEEZER: return DeezerIcon;
+    default: return () => <Globe2 className="h-3 w-3 text-white/60" />;
+  }
+}
+
+export function PlatformIcon({ provider, size = "md" }: { provider: Provider; size?: "sm" | "md" }) {
+  const iconClass = providerIconClass(provider);
+  const Icon = providerIconComponent(provider);
+  const sizeClass = size === "sm" ? "w-[1.1rem] h-[1.1rem]" : "w-[1.35rem] h-[1.35rem]";
+
+  return (
+    <span
+      aria-hidden="true"
+      className={["platform-link__icon inline-flex shrink-0", sizeClass, iconClass].filter(Boolean).join(" ")}
+    >
+      <Icon />
+    </span>
+  );
 }
 
 export function PlatformLink({
@@ -72,17 +103,11 @@ export function PlatformLink({
   compact?: boolean;
 }) {
   const hostname = getHostname(href);
-  const isDeezer = isDeezerHostname(hostname);
-  const isTidal = isTidalHostname(hostname);
-  const isLastfm = isLastfmHostname(hostname);
-  const faviconUrl = faviconOverride(hostname);
+  const match = matchHostname(hostname);
 
   return (
     <a
-      className={[
-        compact ? "platform-link platform-link--compact" : "platform-link",
-        className,
-      ]
+      className={[compact ? "platform-link platform-link--compact" : "platform-link", className]
         .filter(Boolean)
         .join(" ")}
       href={href}
@@ -91,23 +116,9 @@ export function PlatformLink({
     >
       <span
         aria-hidden="true"
-        className={[
-          "platform-link__icon",
-          isDeezer ? "platform-link__icon--deezer" : "",
-          isTidal ? "platform-link__icon--tidal" : "",
-          isLastfm ? "platform-link__icon--lastfm" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className={["platform-link__icon", match?.iconClass ?? ""].filter(Boolean).join(" ")}
       >
-        {faviconUrl ? (
-          <span
-            className="platform-link__favicon"
-            style={{ backgroundImage: `url(${faviconUrl})` }}
-          />
-        ) : (
-          <Globe2 className="h-3.5 w-3.5" />
-        )}
+        {match ? <match.Icon /> : <Globe2 className="h-3.5 w-3.5" />}
       </span>
       <span>{label}</span>
       <ExternalLink className="h-4 w-4" />

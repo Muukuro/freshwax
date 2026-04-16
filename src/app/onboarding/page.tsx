@@ -3,6 +3,7 @@ import { CheckCircle2, Link2, Music4, SkipForward } from "lucide-react";
 import { Provider } from "@prisma/client";
 
 import { completeOnboardingAction } from "@/app/actions/settings";
+import { PlatformIcon } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
@@ -97,9 +98,12 @@ export default async function OnboardingPage() {
                   <article key={provider} className="panel-muted space-y-4 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-xl font-semibold text-[var(--text)]">
-                          {getProviderLabel(provider)}
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          <PlatformIcon provider={provider} />
+                          <h2 className="text-xl font-semibold text-[var(--text)]">
+                            {getProviderLabel(provider)}
+                          </h2>
+                        </div>
                         <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                           {capability.description}
                         </p>

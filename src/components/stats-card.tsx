@@ -1,15 +1,24 @@
+import { type LucideIcon } from "lucide-react";
+
 export function StatsCard({
   label,
   value,
   detail,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   detail: string;
+  icon?: LucideIcon;
 }) {
   return (
     <article className="panel relative overflow-hidden">
-      <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[1.2rem] bg-[linear-gradient(135deg,_rgba(215,255,100,0.7),_rgba(45,109,246,0.14))]" />
+      {Icon && (
+        <Icon
+          className="absolute -right-4 -top-4 h-24 w-24 text-[var(--signal)] opacity-[0.13]"
+          strokeWidth={0.8}
+        />
+      )}
       <p className="eyebrow">{label}</p>
       <div className="mt-3 font-display text-5xl leading-none text-[var(--text)]">{value}</div>
       <p className="mt-3 max-w-xs text-sm leading-7 text-[var(--muted)]">{detail}</p>

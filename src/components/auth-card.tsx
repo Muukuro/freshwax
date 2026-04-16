@@ -31,11 +31,12 @@ export function AuthCard({
     label: string;
     href?: string;
     note?: string;
+    icon?: React.ReactNode;
   }[];
 }) {
   return (
     <div className="panel mx-auto w-full max-w-md p-8">
-      <p className="eyebrow">Freshwax</p>
+      <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
       <h1 className="font-display mt-4 text-5xl leading-none tracking-[-0.04em] text-[var(--text)]">
         {title}
       </h1>
@@ -90,6 +91,7 @@ export function AuthCard({
             {externalProviders.map((provider) =>
               provider.href ? (
                 <Link key={provider.label} className="ghost-button w-full justify-center" href={provider.href}>
+                  {provider.icon ?? null}
                   {provider.label}
                 </Link>
               ) : (
@@ -97,6 +99,7 @@ export function AuthCard({
                   key={provider.label}
                   className="ghost-button pointer-events-none w-full justify-center opacity-60"
                 >
+                  {provider.icon ?? null}
                   {provider.label}
                   {provider.note ? ` • ${provider.note}` : ""}
                 </div>

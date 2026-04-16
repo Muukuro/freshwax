@@ -30,26 +30,11 @@ export function AppShell({
     <div className="min-h-screen">
       <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-8 md:py-6">
         <div className="shell-grid min-h-[calc(100vh-2rem)]">
-          <aside className="panel hidden flex-col justify-between p-6 md:flex">
+          <aside className="panel sticky top-6 self-start hidden min-h-[calc(100vh-3rem)] flex-col justify-between p-6 md:flex">
             <div>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="eyebrow">Freshwax</p>
-                  <h1 className="font-display mt-3 text-4xl leading-none tracking-[-0.04em] text-[var(--text)]">
-                    Release tracking for people who actually listen on purpose.
-                  </h1>
-                </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,_rgba(45,109,246,1),_rgba(16,42,71,1))] text-white shadow-[0_14px_30px_rgba(24,52,84,0.2)]">
-                  <Disc3 className="h-5 w-5" />
-                </div>
-              </div>
+              <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
 
-              <p className="mt-5 text-sm leading-7 text-[var(--muted)]">
-                A structured release desk with private watchlists, discovery events, sync status, and
-                a calendar feed that feels closer to studio tooling than startup wallpaper.
-              </p>
-
-              <nav className="mt-10 space-y-2">
+              <nav className="mt-8 space-y-2">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -68,12 +53,9 @@ export function AppShell({
               </nav>
             </div>
 
-            <div className="panel-muted p-4">
+            <div className="panel-muted mt-6 p-4">
               <p className="eyebrow">Signed in</p>
-              <p className="mt-2 text-lg font-semibold text-[var(--text)]">{userName}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                Local session, self-hosted server, and platform-aware release tracking.
-              </p>
+              <p className="mt-2 text-base font-semibold text-[var(--text)]">{userName}</p>
               <form action={signOut} className="mt-4">
                 <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">
                   Sign out
@@ -85,14 +67,7 @@ export function AppShell({
           <main className="flex min-w-0 flex-col gap-4">
             <div className="flex items-center justify-between gap-3 rounded-[var(--radius-lg)] bg-[var(--mobile-header-bg)] px-4 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)] backdrop-blur-[10px] md:hidden">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,_rgba(45,109,246,1),_rgba(16,42,71,1))] text-white shadow-[0_10px_24px_rgba(24,52,84,0.22)]">
-                  <Disc3 className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[0.95rem] font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">
-                    Freshwax
-                  </p>
-                </div>
+                <p className="font-display text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
               </div>
               <button
                 aria-expanded={mobileMenuOpen}

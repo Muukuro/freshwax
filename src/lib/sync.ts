@@ -9,7 +9,16 @@ import {
   searchArtists,
 } from "@/lib/providers/deezer";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
-import { buildTidalReleaseSearchUrl } from "@/lib/providers/tidal";
+import {
+  fetchMbPlatformMappingsByMbid,
+  fetchMbReleasePlatformMappings,
+  lookupMbidByUrl,
+  searchArtistMbid,
+} from "@/lib/providers/musicbrainz";
+import {
+  fetchWikidataPlatformMappingsByMbid,
+} from "@/lib/providers/wikidata";
+import { buildTidalReleaseSearchUrl, fetchTidalFollowedArtists } from "@/lib/providers/tidal";
 import { classifyReleaseType } from "@/lib/release-types";
 import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
 import { normalizeName } from "@/lib/utils";
@@ -81,6 +90,53 @@ async function enrichReleaseRawSource(
   } catch (error) {
     console.error("Failed to enrich Deezer release attribution hints", error);
     return release.raw;
+  }
+}
+
+/**
+ * Return the URL that MusicBrainz uses to identify an artist for a given provider.
+ * MB stores canonical URLs per-provider; these must match what MB has indexed.
+ */
+function buildMbLookupUrl(provider: Provider, providerArtistId: string): string | null {
+  switch (provider) {
+    case Provider.DEEZER:
+      return `https://www.deezer.com/artist/${providerArtistId}`;
+    case Provider.TIDAL:
+      // MB stores tidal.com URLs, not listen.tidal.com
+      return `https://tidal.com/artist/${providerArtistId}`;
+    case Provider.SPOTIFY:
+      return `https://open.spotify.com/artist/${providerArtistId}`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Resolve a MusicBrainz artist ID from whatever provider mappings we already have,
+ * falling back to a name search when no URL lookup succeeds.
+ * Tries URL-based lookups first (unambiguous), then name search (best-effort).
+ */
+async function resolveArtistMbid(
+  artistName: string,
+  mappings: { provider: Provider; providerArtistId: string; url: string | null }[],
+): Promise<string | null> {
+  // Try each stored mapping — use the stored URL if present, otherwise build the canonical MB URL.
+  for (const mapping of mappings) {
+    const url = mapping.url ?? buildMbLookupUrl(mapping.provider, mapping.providerArtistId);
+    if (!url) continue;
+    try {
+      const mbid = await lookupMbidByUrl(url);
+      if (mbid) return mbid;
+    } catch {
+      // try next mapping
+    }
+  }
+
+  // Fall back to name search — less precise but works when no provider URL matches.
+  try {
+    return await searchArtistMbid(artistName);
+  } catch {
+    return null;
   }
 }
 
@@ -313,14 +369,58 @@ export async function importLastfmTopArtistsForUser(
   let skippedCount = 0;
 
   for (const artist of uniqueArtists) {
-    const match = await resolveArtistSearchResultByName(artist.name);
-
-    if (!match) {
+    const normalizedName = normalizeName(artist.name);
+    if (!normalizedName) {
       skippedCount += 1;
       continue;
     }
 
-    const followedArtist = await followArtistForUser(userId, match);
+    // Follow the artist by name — no Deezer resolution required at import time.
+    // Release sync will lazily discover the Deezer mapping on the first sync run.
+    const followedArtist = await followArtistForUser(userId, {
+      name: artist.name,
+      imageUrl: null,
+      deezerFans: null,
+    });
+    await enqueueArtistSyncSafe(followedArtist.id);
+    importedCount += 1;
+  }
+
+  return {
+    importedCount,
+    skippedCount,
+    inspectedCount: uniqueArtists.length,
+  };
+}
+
+export async function importTidalFollowedArtistsForUser(userId: string, accessToken: string) {
+  const artists = await fetchTidalFollowedArtists(accessToken);
+  const uniqueArtists = artists.filter((artist, index, entries) => {
+    const normalizedName = normalizeName(artist.name);
+    if (!normalizedName) return false;
+
+    return entries.findIndex((entry) => normalizeName(entry.name) === normalizedName) === index;
+  });
+  let importedCount = 0;
+  let skippedCount = 0;
+
+  for (const artist of uniqueArtists) {
+    if (!normalizeName(artist.name)) {
+      skippedCount += 1;
+      continue;
+    }
+
+    // Follow the artist directly using the TIDAL provider data — no Deezer resolution
+    // required at import time. Release sync will lazily discover the Deezer mapping.
+    const followedArtist = await followArtistForUser(userId, {
+      name: artist.name,
+      sourceProvider: Provider.TIDAL,
+      providerArtistId: artist.providerArtistId,
+      providerUrl: artist.tidalUrl,
+      imageUrl: null,
+      deezerFans: null,
+    });
+
     await enqueueArtistSyncSafe(followedArtist.id);
     importedCount += 1;
   }
@@ -340,6 +440,27 @@ export async function syncAllArtists() {
 
   for (const entry of artistIds) {
     await syncArtist(entry.artistId);
+  }
+}
+
+async function enrichReleasePlatformMappings(releaseId: string, deezerAlbumId: string) {
+  const mbMappings = await fetchMbReleasePlatformMappings(deezerAlbumId).catch(() => []);
+  for (const mapping of mbMappings) {
+    await prisma.releaseProviderMapping.upsert({
+      where: {
+        provider_providerReleaseId: {
+          provider: mapping.provider,
+          providerReleaseId: mapping.providerReleaseId,
+        },
+      },
+      update: { releaseId, url: mapping.url },
+      create: {
+        releaseId,
+        provider: mapping.provider,
+        providerReleaseId: mapping.providerReleaseId,
+        url: mapping.url,
+      },
+    });
   }
 }
 
@@ -369,20 +490,85 @@ export async function syncArtist(artistId: string, userId?: string) {
       throw new Error("Artist not found");
     }
 
-    const deezerMapping = artist.mappings.find((entry) => entry.provider === Provider.DEEZER);
+    // ── Step 1: Platform link enrichment ────────────────────────────────────
+    // Run on first sync only (once non-Deezer mappings exist we consider it done).
+    // Resolves MBID from whatever provider data is available, then queries
+    // Wikidata (structured IDs) and MusicBrainz (YouTube Music, gaps).
+    const hasNonDeezerMappings = artist.mappings.some((m) => m.provider !== Provider.DEEZER);
+    if (!hasNonDeezerMappings) {
+      const mbid = await resolveArtistMbid(artist.canonicalName, artist.mappings);
+
+      if (mbid) {
+        const wdResult = await fetchWikidataPlatformMappingsByMbid(mbid);
+        const enrichedMappings = [...(wdResult?.mappings ?? [])];
+
+        // MusicBrainz supplements Wikidata for providers it doesn't cover (e.g. YouTube Music).
+        const mbMappings = await fetchMbPlatformMappingsByMbid(mbid);
+        const coveredProviders = new Set(enrichedMappings.map((m) => m.provider));
+        for (const mbMapping of mbMappings) {
+          if (!coveredProviders.has(mbMapping.provider) && mbMapping.provider !== Provider.DEEZER) {
+            enrichedMappings.push(mbMapping);
+          }
+        }
+
+        const existingProviders = new Set(artist.mappings.map((m) => m.provider));
+        for (const mapping of enrichedMappings) {
+          if (existingProviders.has(mapping.provider)) continue;
+          await prisma.artistProviderMapping.upsert({
+            where: {
+              provider_providerArtistId: {
+                provider: mapping.provider,
+                providerArtistId: mapping.providerArtistId,
+              },
+            },
+            update: { artistId, url: mapping.url },
+            create: {
+              artistId,
+              provider: mapping.provider,
+              providerArtistId: mapping.providerArtistId,
+              url: mapping.url,
+            },
+          });
+        }
+      }
+    }
+
+    // ── Step 2: Lazy Deezer discovery ───────────────────────────────────────
+    // If no Deezer mapping exists yet (e.g. artist was imported from TIDAL or
+    // Last.fm), try to find one by name so release sync can proceed.
+    let deezerMapping = artist.mappings.find((entry) => entry.provider === Provider.DEEZER);
+    if (!deezerMapping) {
+      const deezerMatch = await resolveArtistSearchResultByName(artist.canonicalName);
+      if (deezerMatch) {
+        const upserted = await prisma.artistProviderMapping.upsert({
+          where: {
+            provider_providerArtistId: {
+              provider: Provider.DEEZER,
+              providerArtistId: deezerMatch.providerArtistId,
+            },
+          },
+          update: { artistId, url: deezerMatch.providerUrl },
+          create: {
+            artistId,
+            provider: Provider.DEEZER,
+            providerArtistId: deezerMatch.providerArtistId,
+            url: deezerMatch.providerUrl,
+            rawJson: deezerMatch.raw ?? undefined,
+          },
+        });
+        deezerMapping = upserted;
+      }
+    }
+
     if (!deezerMapping) {
       await prisma.userFollow.updateMany({
         where: { artistId },
-        data: {
-          lastSyncedAt: new Date(),
-        },
+        data: { lastSyncedAt: new Date() },
       });
-
       await updateSyncJobLog(job, {
         status: JobStatus.SUCCEEDED,
-        message: "No release-sync provider mapping is available for this artist yet",
+        message: "No Deezer mapping found — release sync skipped",
       });
-
       return;
     }
 
@@ -394,7 +580,9 @@ export async function syncArtist(artistId: string, userId?: string) {
         providerReleaseId: { in: providerIds },
       },
       include: {
-        release: true,
+        release: {
+          include: { mappings: true },
+        },
       },
     });
 
@@ -459,6 +647,14 @@ export async function syncArtist(artistId: string, userId?: string) {
           },
         });
 
+        // Enrich platform links if we only have the Deezer mapping so far.
+        const hasNonDeezerReleaseMappings = existing.release.mappings.some(
+          (m) => m.provider !== Provider.DEEZER,
+        );
+        if (!hasNonDeezerReleaseMappings) {
+          await enrichReleasePlatformMappings(existing.release.id, release.providerReleaseId);
+        }
+
         continue;
       }
 
@@ -487,6 +683,8 @@ export async function syncArtist(artistId: string, userId?: string) {
           },
         },
       });
+
+      await enrichReleasePlatformMappings(created.id, release.providerReleaseId);
 
       if (artist.followers.length > 0) {
         const eligibleFollowers = artist.followers.filter((follow) => {

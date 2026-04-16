@@ -101,6 +101,15 @@ export async function updateSettingsAction(formData: FormData) {
     },
   });
 
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/upcoming");
+  revalidatePath("/discoveries");
+}
+
+export async function updatePlatformPreferencesAction(formData: FormData) {
+  const user = await requireUser();
+
   await savePlatformPreferences(user.id, formData);
 
   revalidatePath("/settings");

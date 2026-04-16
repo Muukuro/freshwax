@@ -2,7 +2,11 @@ import { Copy, Link2, RotateCw, Unplug } from "lucide-react";
 import { Provider } from "@prisma/client";
 import Link from "next/link";
 
-import { importDeezerFollowsAction, importLastfmArtistsAction } from "@/app/actions/follows";
+import { PlatformIcon } from "@/components/platform-link";
+
+import { importDeezerFollowsAction, importLastfmArtistsAction, importTidalFollowsAction } from "@/app/actions/follows";
+import { ImportForm } from "@/components/import-form";
+import { SyncQueueStatus } from "@/components/sync-queue-status";
 import {
   disconnectAppleMusicAction,
   disconnectDeezerAction,
@@ -11,6 +15,7 @@ import {
   disconnectTidalAction,
   rotateCalendarTokenAction,
   saveLastfmUsernameAction,
+  updatePlatformPreferencesAction,
   updateSettingsAction,
 } from "@/app/actions/settings";
 import { SubmitButton } from "@/components/submit-button";
@@ -84,7 +89,7 @@ export default async function SettingsPage() {
             <input defaultValue={user.timezone} name="timezone" type="text" />
           </label>
           <label className="field">
-            <span>Future horizon (days)</span>
+            <span>Future horizon</span>
             <input
               defaultValue={user.settings?.futureHorizonDays ?? 180}
               min="14"
@@ -93,7 +98,7 @@ export default async function SettingsPage() {
             />
           </label>
           <label className="field">
-            <span>Missed-release window (days)</span>
+            <span>Discovery window</span>
             <input
               defaultValue={user.settings?.discoveryWindowDays ?? 30}
               min="1"
@@ -101,122 +106,65 @@ export default async function SettingsPage() {
               type="number"
             />
           </label>
-          <div className="field gap-3">
+          <div className="field md:col-span-2 gap-3">
             <span>Release types</span>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.includeSingles ?? true}
-                name="includeSingles"
-                type="checkbox"
-              />
-              Include singles
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.includeEps ?? true}
-                name="includeEps"
-                type="checkbox"
-              />
-              Include EPs
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.includeCompilations ?? false}
-                name="includeCompilations"
-                type="checkbox"
-              />
-              Include compilations
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.includeLive ?? false}
-                name="includeLive"
-                type="checkbox"
-              />
-              Include live releases
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.includeReissues ?? false}
-                name="includeReissues"
-                type="checkbox"
-              />
-              Include reissues and remasters
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.hideClassicalComposerAppearances ?? true}
-                name="hideClassicalComposerAppearances"
-                type="checkbox"
-              />
-              Hide classical composer appearances
-            </label>
-            <label className="check">
-              <input
-                defaultChecked={user.settings?.hideIgnored ?? true}
-                name="hideIgnored"
-                type="checkbox"
-              />
-              Hide ignored items from feeds and calendar
-            </label>
-          </div>
-
-          <div className="field md:col-span-2 gap-4">
-            <span>Favorite platforms and link visibility</span>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {STREAMING_PROVIDERS.map((provider, index) => {
-                const preference = preferenceByProvider.get(provider);
-                const capability = getProviderCapability(provider);
-
-                return (
-                  <div key={provider} className="panel-muted space-y-3 p-4">
-                    <div>
-                      <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
-                      <p className="text-sm leading-6 text-[var(--muted)]">
-                        {getProviderAvailabilityNote(provider)}
-                      </p>
-                    </div>
-                    <input
-                      defaultValue={preference?.favoriteRank ?? index + 1}
-                      name={`favoriteRank:${provider}`}
-                      type="hidden"
-                    />
-                    <label className="check">
-                      <input
-                        defaultChecked={preference?.isFavorite ?? false}
-                        name={`favorite:${provider}`}
-                        type="checkbox"
-                      />
-                      Favorite platform
-                    </label>
-                    <label className="check">
-                      <input
-                        defaultChecked={preference?.allowImport ?? capability.supportsFollowImport}
-                        disabled={!capability.supportsFollowImport}
-                        name={`allowImport:${provider}`}
-                        type="checkbox"
-                      />
-                      Allow followed-artist import
-                    </label>
-                    <label className="check">
-                      <input
-                        defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks}
-                        name={`showArtistLinks:${provider}`}
-                        type="checkbox"
-                      />
-                      Show artist links
-                    </label>
-                    <label className="check">
-                      <input
-                        defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks}
-                        name={`showReleaseLinks:${provider}`}
-                        type="checkbox"
-                      />
-                      Show release links
-                    </label>
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-2">
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.includeSingles ?? true}
+                  name="includeSingles"
+                  type="checkbox"
+                />
+                Include singles
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.includeEps ?? true}
+                  name="includeEps"
+                  type="checkbox"
+                />
+                Include EPs
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.includeCompilations ?? false}
+                  name="includeCompilations"
+                  type="checkbox"
+                />
+                Include compilations
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.includeLive ?? false}
+                  name="includeLive"
+                  type="checkbox"
+                />
+                Include live releases
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.includeReissues ?? false}
+                  name="includeReissues"
+                  type="checkbox"
+                />
+                Include reissues and remasters
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.hideClassicalComposerAppearances ?? true}
+                  name="hideClassicalComposerAppearances"
+                  type="checkbox"
+                />
+                Hide classical composer appearances
+              </label>
+              <label className="check">
+                <input
+                  defaultChecked={user.settings?.hideIgnored ?? true}
+                  name="hideIgnored"
+                  type="checkbox"
+                />
+                Hide ignored items from feeds and calendar
+              </label>
             </div>
           </div>
 
@@ -244,21 +192,30 @@ export default async function SettingsPage() {
         </article>
 
         <article className="panel">
-          <p className="eyebrow">Import sources</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Connect or gate platforms</h2>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="eyebrow">Import sources</p>
+              <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Connect or gate platforms</h2>
+            </div>
+            <SyncQueueStatus />
+          </div>
           <div className="mt-6 space-y-4">
-            {STREAMING_PROVIDERS.map((provider) => {
+            {STREAMING_PROVIDERS.map((provider, index) => {
               const capability = getProviderCapability(provider);
               const connectedAs = connectionSummary(user, provider);
               const disconnectAction = disconnectActionFor(provider);
+              const preference = preferenceByProvider.get(provider);
 
               return (
                 <article key={provider} className="panel-muted space-y-4 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-xl font-semibold text-[var(--text)]">
-                        {getProviderLabel(provider)}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <PlatformIcon provider={provider} />
+                        <h3 className="text-xl font-semibold text-[var(--text)]">
+                          {getProviderLabel(provider)}
+                        </h3>
+                      </div>
                       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
                         {capability.description}
                       </p>
@@ -272,7 +229,52 @@ export default async function SettingsPage() {
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap gap-3">
+                  {isProviderConfigured(provider) ? (
+                    <form action={updatePlatformPreferencesAction} className="space-y-3">
+                      <input defaultValue={preference?.favoriteRank ?? index + 1} name={`favoriteRank:${provider}`} type="hidden" />
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.isFavorite ?? false} name={`favorite:${provider}`} type="checkbox" />
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text)]">Favorite</p>
+                            <p className="text-xs leading-5 text-[var(--muted)]">Pin to the top of link rows</p>
+                          </div>
+                        </label>
+                        <label className={`flex items-start gap-3 ${!capability.supportsFollowImport ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                          <input
+                            className="mt-0.5 shrink-0"
+                            defaultChecked={preference?.allowImport ?? capability.supportsFollowImport}
+                            disabled={!capability.supportsFollowImport}
+                            name={`allowImport:${provider}`}
+                            type="checkbox"
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text)]">Import follows</p>
+                            <p className="text-xs leading-5 text-[var(--muted)]">Sync followed artists from this platform</p>
+                          </div>
+                        </label>
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks} name={`showArtistLinks:${provider}`} type="checkbox" />
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text)]">Artist links</p>
+                            <p className="text-xs leading-5 text-[var(--muted)]">Show artist profile links on your watchlist</p>
+                          </div>
+                        </label>
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks} name={`showReleaseLinks:${provider}`} type="checkbox" />
+                          <div>
+                            <p className="text-sm font-medium text-[var(--text)]">Release links</p>
+                            <p className="text-xs leading-5 text-[var(--muted)]">Show release links in feeds and calendar</p>
+                          </div>
+                        </label>
+                      </div>
+                      <SubmitButton className="ghost-button" pendingLabel="Saving...">
+                        Save
+                      </SubmitButton>
+                    </form>
+                  ) : null}
+
+                  <div className={`flex flex-wrap gap-3 ${isProviderConfigured(provider) ? "border-t border-[var(--panel-border)] pt-4" : ""}`}>
                     {capability.supportsLogin &&
                     isProviderConfigured(provider) &&
                     isExternalAuthImplemented(provider) ? (
@@ -282,12 +284,12 @@ export default async function SettingsPage() {
                       </a>
                     ) : null}
 
+                    {provider === Provider.TIDAL && user.tidalConnection ? (
+                      <ImportForm action={importTidalFollowsAction} />
+                    ) : null}
+
                     {provider === Provider.DEEZER && user.deezerConnection ? (
-                      <form action={importDeezerFollowsAction}>
-                        <SubmitButton className="primary-button" pendingLabel="Importing...">
-                          Import followed artists
-                        </SubmitButton>
-                      </form>
+                      <ImportForm action={importDeezerFollowsAction} />
                     ) : null}
 
                     {disconnectAction && connectedAs ? (
@@ -338,19 +340,20 @@ export default async function SettingsPage() {
           </form>
 
           {user.lastfmConnection ? (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <form action={importLastfmArtistsAction}>
-                <SubmitButton className="ghost-button" pendingLabel="Importing...">
-                  <Link2 className="h-4 w-4" />
-                  Import from Last.fm
-                </SubmitButton>
-              </form>
-              <form action={disconnectLastfmAction}>
-                <SubmitButton className="ghost-button" pendingLabel="Removing...">
-                  <Unplug className="h-4 w-4" />
-                  Remove Last.fm
-                </SubmitButton>
-              </form>
+            <div className="mt-4 space-y-3">
+              <div className="flex flex-wrap gap-3">
+                <ImportForm
+                  action={importLastfmArtistsAction}
+                  label="Import from Last.fm"
+                  className="ghost-button"
+                />
+                <form action={disconnectLastfmAction}>
+                  <SubmitButton className="ghost-button" pendingLabel="Removing...">
+                    <Unplug className="h-4 w-4" />
+                    Remove Last.fm
+                  </SubmitButton>
+                </form>
+              </div>
             </div>
           ) : null}
         </article>
