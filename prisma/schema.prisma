@@ -39,6 +39,17 @@ enum JobStatus {
   FAILED
 }
 
+enum NotificationDeliveryChannel {
+  WEB_PUSH
+  WEBHOOK
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
 model User {
   id                 String              @id @default(cuid())
   email              String              @unique
@@ -62,6 +73,7 @@ model User {
   discoveries        DiscoveryEvent[]
   ignoredReleases    IgnoredRelease[]
   notificationEvents NotificationEvent[]
+  pushSubscriptions  PushSubscription[]
   syncJobs           SyncJob[]
 }
 
@@ -88,6 +100,8 @@ model UserSettings {
   hideIgnored          Boolean  @default(true)
   futureHorizonDays    Int      @default(180)
   discoveryWindowDays  Int      @default(30)
+  notifyOnReleaseDay   Boolean  @default(true)
+  notifyOnDiscovery    Boolean  @default(false)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -320,18 +334,54 @@ model IgnoredRelease {
 }
 
 model NotificationEvent {
-  id         String   @id @default(cuid())
-  userId     String
-  releaseId  String
-  kind       String
-  status     String   @default("pending")
-  payload    Json?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  id              String                  @id @default(cuid())
+  userId          String
+  releaseId       String
+  kind            String
+  status          String                  @default("pending")
+  scheduledFor    DateTime                @default(now())
+  lastAttemptedAt DateTime?
+  deliveredAt     DateTime?
+  lastError       String?
+  payload         Json?
+  createdAt       DateTime                @default(now())
+  user            User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  release         Release                 @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  deliveries      NotificationDelivery[]
 
   @@index([userId, status])
+  @@index([status, scheduledFor])
   @@unique([userId, releaseId, kind])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model NotificationDelivery {
+  id              String                     @id @default(cuid())
+  eventId         String
+  channel         NotificationDeliveryChannel
+  targetKey       String
+  status          NotificationDeliveryStatus @default(PENDING)
+  lastAttemptedAt DateTime?
+  deliveredAt     DateTime?
+  lastError       String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  event           NotificationEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, channel, targetKey])
+  @@index([status, updatedAt])
 }
 
 model SyncJob {

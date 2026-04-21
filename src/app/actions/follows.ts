@@ -63,6 +63,35 @@ export async function unfollowArtistAction(formData: FormData) {
   revalidatePath("/discoveries");
 }
 
+export async function syncFollowedArtistNowAction(formData: FormData) {
+  const user = await requireUser();
+  const artistId = String(formData.get("artistId") ?? "");
+
+  const follow = await prisma.userFollow.findUnique({
+    where: {
+      userId_artistId: {
+        userId: user.id,
+        artistId,
+      },
+    },
+    select: { artistId: true },
+  });
+
+  if (!follow) {
+    throw new Error("Artist is not followed by the current user");
+  }
+
+  after(async () => {
+    await syncArtist(artistId, user.id);
+    revalidatePath("/artists");
+    revalidatePath("/dashboard");
+    revalidatePath("/upcoming");
+    revalidatePath("/discoveries");
+  });
+
+  revalidatePath("/artists");
+}
+
 export type ImportResult =
   | { ok: true; started: true }
   | { ok: false; error: string };

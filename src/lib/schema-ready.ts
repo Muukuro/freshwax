@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 
-const BACKGROUND_SCHEMA_TABLES = ['public."UserFollow"', 'public."SyncJob"'];
+const BACKGROUND_SCHEMA_TABLES = [
+  'public."UserFollow"',
+  'public."SyncJob"',
+  'public."NotificationEvent"',
+  'public."PushSubscription"',
+  'public."NotificationDelivery"',
+];
 const SCHEMA_CHECK_TTL_MS = 30_000;
 
 let cachedBackgroundSchemaReady: boolean | null = null;
@@ -28,11 +34,9 @@ export async function isBackgroundSchemaReady() {
   }
 
   const rows = await prisma.$queryRawUnsafe<Array<{ regclass: string | null }>>(
-    `SELECT to_regclass($1)::text AS regclass
-     UNION ALL
-     SELECT to_regclass($2)::text AS regclass`,
-    BACKGROUND_SCHEMA_TABLES[0],
-    BACKGROUND_SCHEMA_TABLES[1],
+    `SELECT to_regclass(value)::text AS regclass
+     FROM unnest($1::text[]) AS value`,
+    BACKGROUND_SCHEMA_TABLES,
   );
 
   const ready = rows.every((row) => row.regclass !== null);

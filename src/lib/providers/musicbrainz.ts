@@ -24,6 +24,19 @@ type MbSearchResponse = {
   artists?: { id: string; name: string; score: number }[];
 };
 
+type MbReleaseGroup = {
+  id: string;
+  title?: string;
+  "first-release-date"?: string;
+  "primary-type"?: string;
+  "secondary-types"?: string[];
+};
+
+type MbReleaseGroupBrowseResponse = {
+  "release-groups"?: MbReleaseGroup[];
+  "release-group-count"?: number;
+};
+
 export type MbPlatformMapping = {
   provider: Provider;
   providerArtistId: string;
@@ -135,6 +148,14 @@ export type MbReleasePlatformMapping = {
   url: string;
 };
 
+export type MbArtistReleaseGroup = {
+  releaseGroupId: string;
+  title: string;
+  firstReleaseDate: string;
+  primaryType: string | null;
+  secondaryTypes: string[];
+};
+
 function parsePlatformReleaseUrl(rawUrl: string): MbReleasePlatformMapping | null {
   let parsed: URL;
   try {
@@ -240,6 +261,65 @@ export async function fetchMbReleasePlatformMappings(
   } catch {
     return [];
   }
+}
+
+export async function fetchMbReleasePlatformMappingsByReleaseGroupMbid(
+  releaseGroupMbid: string,
+): Promise<MbReleasePlatformMapping[]> {
+  try {
+    const data = (await mbFetch(
+      `${MB_API}/release-group/${releaseGroupMbid}?inc=url-rels&fmt=json`,
+    )) as { relations?: MbRelation[] };
+
+    const mappings: MbReleasePlatformMapping[] = [];
+    for (const rel of data.relations ?? []) {
+      if (rel["target-type"] !== "url" || !rel.url?.resource) continue;
+      const mapping = parsePlatformReleaseUrl(rel.url.resource);
+      if (mapping) mappings.push(mapping);
+    }
+
+    return mappings;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchArtistReleaseGroupsByMbid(
+  mbid: string,
+): Promise<MbArtistReleaseGroup[]> {
+  const releaseGroups: MbArtistReleaseGroup[] = [];
+  const limit = 100;
+  let offset = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (offset < total) {
+    const data = (await mbFetch(
+      `${MB_API}/release-group?artist=${encodeURIComponent(mbid)}&limit=${limit}&offset=${offset}&fmt=json&release-group-status=website-default`,
+    )) as MbReleaseGroupBrowseResponse;
+
+    const page = (data["release-groups"] ?? [])
+      .filter(
+        (releaseGroup): releaseGroup is MbReleaseGroup & { title: string } =>
+          Boolean(releaseGroup.id && releaseGroup.title && releaseGroup["first-release-date"]),
+      )
+      .map((releaseGroup) => ({
+        releaseGroupId: releaseGroup.id,
+        title: releaseGroup.title,
+        firstReleaseDate: releaseGroup["first-release-date"]!,
+        primaryType: releaseGroup["primary-type"] ?? null,
+        secondaryTypes: releaseGroup["secondary-types"] ?? [],
+      }));
+
+    releaseGroups.push(...page);
+    total = Number(data["release-group-count"] ?? releaseGroups.length);
+    offset += limit;
+
+    if (page.length === 0) {
+      break;
+    }
+  }
+
+  return releaseGroups;
 }
 
 /**

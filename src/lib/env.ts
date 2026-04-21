@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { isValidTimeZone } from "@/lib/timezone";
+
 const optionalEnvString = z.preprocess((value) => {
   if (typeof value !== "string") {
     return value;
@@ -31,11 +33,18 @@ const envSchema = z.object({
   DEEZER_RATE_LIMIT_RETRIES: z.coerce.number().int().nonnegative().default(6),
   DEEZER_RATE_LIMIT_BASE_DELAY_MS: z.coerce.number().int().positive().default(15_000),
   LASTFM_API_KEY: optionalEnvString,
+  WEB_PUSH_PUBLIC_KEY: optionalEnvString,
+  WEB_PUSH_PRIVATE_KEY: optionalEnvString,
+  NOTIFICATION_WEBHOOK_URL: optionalEnvString.pipe(z.string().url().optional()),
+  NOTIFICATION_WEBHOOK_SECRET: optionalEnvString,
   SESSION_COOKIE_NAME: z.string().min(1).default("nrt_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   SYNC_INTERVAL_MINUTES: z.coerce.number().int().positive().default(360),
   ARTIST_SYNC_CONCURRENCY: z.coerce.number().int().positive().default(1),
-  DEFAULT_TIMEZONE: z.string().min(1).default("UTC"),
+  DEFAULT_TIMEZONE: optionalEnvString.refine(
+    (value) => value === undefined || isValidTimeZone(value),
+    "DEFAULT_TIMEZONE must be a valid IANA timezone",
+  ),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 
@@ -63,11 +72,15 @@ export const env = envSchema.parse({
   DEEZER_RATE_LIMIT_RETRIES: process.env.DEEZER_RATE_LIMIT_RETRIES ?? "6",
   DEEZER_RATE_LIMIT_BASE_DELAY_MS: process.env.DEEZER_RATE_LIMIT_BASE_DELAY_MS ?? "15000",
   LASTFM_API_KEY: process.env.LASTFM_API_KEY,
+  WEB_PUSH_PUBLIC_KEY: process.env.WEB_PUSH_PUBLIC_KEY,
+  WEB_PUSH_PRIVATE_KEY: process.env.WEB_PUSH_PRIVATE_KEY,
+  NOTIFICATION_WEBHOOK_URL: process.env.NOTIFICATION_WEBHOOK_URL,
+  NOTIFICATION_WEBHOOK_SECRET: process.env.NOTIFICATION_WEBHOOK_SECRET,
   SESSION_COOKIE_NAME: process.env.SESSION_COOKIE_NAME ?? "nrt_session",
   SESSION_TTL_DAYS: process.env.SESSION_TTL_DAYS ?? "30",
   SYNC_INTERVAL_MINUTES: process.env.SYNC_INTERVAL_MINUTES ?? "360",
   ARTIST_SYNC_CONCURRENCY: process.env.ARTIST_SYNC_CONCURRENCY ?? "1",
-  DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE ?? "UTC",
+  DEFAULT_TIMEZONE: process.env.DEFAULT_TIMEZONE,
   NODE_ENV: process.env.NODE_ENV ?? "development",
 });
 

@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 
 let queueConnection: IORedis | null = null;
 let artistSyncQueue: Queue | null = null;
+let notificationQueue: Queue | null = null;
 
 export function getQueueConnection() {
   if (!queueConnection) {
@@ -25,6 +26,16 @@ export function getArtistSyncQueue() {
   }
 
   return artistSyncQueue;
+}
+
+export function getNotificationQueue() {
+  if (!notificationQueue) {
+    notificationQueue = new Queue("notifications", {
+      connection: getQueueConnection(),
+    });
+  }
+
+  return notificationQueue;
 }
 
 export async function enqueueArtistSync(artistId: string) {
@@ -76,6 +87,23 @@ export async function ensureRecurringSync() {
           type: "exponential",
           delay: env.DEEZER_RATE_LIMIT_BASE_DELAY_MS,
         },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+      },
+    },
+  );
+}
+
+export async function ensureRecurringNotificationDrain() {
+  await getNotificationQueue().upsertJobScheduler(
+    "scheduled-notification-drain",
+    {
+      every: 5 * 60 * 1000,
+    },
+    {
+      name: "drain-notifications",
+      data: {},
+      opts: {
         removeOnComplete: 100,
         removeOnFail: 200,
       },

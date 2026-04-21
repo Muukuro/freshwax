@@ -1,5 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import { isValidTimeZone } from "@/lib/timezone";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -8,7 +10,7 @@ export async function GET() {
   }
 
   return Response.json({
-    timezone: user.timezone,
+    timezone: getEffectiveTimeZone(user.timezone),
     settings: user.settings,
     calendarToken: user.calendarToken,
     platformPreferences: user.platformPreferences,
@@ -26,6 +28,11 @@ export async function POST(request: Request) {
     futureHorizonDays?: number;
     discoveryWindowDays?: number;
   };
+  const timeZone = body.timezone?.trim();
+
+  if (timeZone && !isValidTimeZone(timeZone)) {
+    return Response.json({ error: "Choose a valid timezone" }, { status: 400 });
+  }
 
   const settings = await prisma.userSettings.update({
     where: { userId: user.id },
@@ -35,12 +42,15 @@ export async function POST(request: Request) {
     },
   });
 
-  if (body.timezone) {
+  if (timeZone) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { timezone: body.timezone },
+      data: { timezone: timeZone },
     });
   }
 
-  return Response.json(settings);
+  return Response.json({
+    ...settings,
+    timezone: timeZone ?? getEffectiveTimeZone(user.timezone),
+  });
 }

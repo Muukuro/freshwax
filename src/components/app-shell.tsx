@@ -12,7 +12,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/artists", label: "Artists", icon: Search },
   { href: "/upcoming", label: "Upcoming", icon: CalendarClock },
-  { href: "/discoveries", label: "Discoveries", icon: Disc3 },
+  { href: "/discoveries", label: "Recent", icon: Disc3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

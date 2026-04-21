@@ -7,7 +7,22 @@ import { Provider } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
+import {
+  STREAMING_PROVIDERS,
+  getDefaultProviderPreference,
+} from "@/lib/platforms";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import { isValidTimeZone } from "@/lib/timezone";
+
+function parseTimeZone(value: FormDataEntryValue | null, fallbackTimeZone: string) {
+  const timeZone = String(value ?? fallbackTimeZone).trim();
+
+  if (!isValidTimeZone(timeZone)) {
+    throw new Error("Choose a valid timezone");
+  }
+
+  return timeZone;
+}
 
 function parseLastfmImportMinPlaycount(value: FormDataEntryValue | null) {
   const parsed = Number(value ?? 10);
@@ -20,12 +35,45 @@ function parseLastfmImportMinPlaycount(value: FormDataEntryValue | null) {
 }
 
 async function savePlatformPreferences(userId: string, formData: FormData) {
-  for (const [index, provider] of STREAMING_PROVIDERS.entries()) {
+  const submittedProviders = STREAMING_PROVIDERS.filter((provider) =>
+    ["favorite", "allowImport", "showArtistLinks", "showReleaseLinks", "favoriteRank"].some((field) =>
+      formData.has(`${field}:${provider}`),
+    ),
+  );
+
+  if (submittedProviders.length === 0) {
+    return;
+  }
+
+  const existingPreferences = await prisma.userPlatformPreference.findMany({
+    where: {
+      userId,
+      provider: {
+        in: submittedProviders,
+      },
+    },
+  });
+  const existingByProvider = new Map(existingPreferences.map((preference) => [preference.provider, preference]));
+  const isChecked = (key: string) => formData.getAll(key).some((value) => value === "on");
+
+  for (const provider of submittedProviders) {
+    const index = STREAMING_PROVIDERS.indexOf(provider);
     const defaults = getDefaultProviderPreference(provider);
-    const allowImport = formData.get(`allowImport:${provider}`) === "on";
-    const showArtistLinks = formData.get(`showArtistLinks:${provider}`) === "on";
-    const showReleaseLinks = formData.get(`showReleaseLinks:${provider}`) === "on";
-    const isFavorite = formData.get(`favorite:${provider}`) === "on";
+    const existing = existingByProvider.get(provider);
+    const allowImport = formData.has(`allowImport:${provider}`)
+      ? isChecked(`allowImport:${provider}`)
+      : existing?.allowImport ?? defaults.allowImport;
+    const showArtistLinks = formData.has(`showArtistLinks:${provider}`)
+      ? isChecked(`showArtistLinks:${provider}`)
+      : existing?.showArtistLinks ?? defaults.showArtistLinks;
+    const showReleaseLinks = formData.has(`showReleaseLinks:${provider}`)
+      ? isChecked(`showReleaseLinks:${provider}`)
+      : existing?.showReleaseLinks ?? defaults.showReleaseLinks;
+    const isFavorite = formData.has(`favorite:${provider}`)
+      ? isChecked(`favorite:${provider}`)
+      : existing?.isFavorite ?? defaults.isFavorite;
+    const favoriteRankValue =
+      formData.get(`favoriteRank:${provider}`) ?? existing?.favoriteRank ?? index + 1;
 
     await prisma.userPlatformPreference.upsert({
       where: {
@@ -39,26 +87,16 @@ async function savePlatformPreferences(userId: string, formData: FormData) {
         showArtistLinks,
         showReleaseLinks,
         isFavorite,
-        favoriteRank:
-          isFavorite
-            ? Number(formData.get(`favoriteRank:${provider}`) ?? index + 1)
-            : null,
+        favoriteRank: isFavorite ? Number(favoriteRankValue) : null,
       },
       create: {
         userId,
         provider,
-        allowImport: formData.has(`allowImport:${provider}`) ? allowImport : defaults.allowImport,
-        showArtistLinks: formData.has(`showArtistLinks:${provider}`)
-          ? showArtistLinks
-          : defaults.showArtistLinks,
-        showReleaseLinks: formData.has(`showReleaseLinks:${provider}`)
-          ? showReleaseLinks
-          : defaults.showReleaseLinks,
-        isFavorite: formData.has(`favorite:${provider}`) ? isFavorite : defaults.isFavorite,
-        favoriteRank:
-          isFavorite
-            ? Number(formData.get(`favoriteRank:${provider}`) ?? index + 1)
-            : defaults.favoriteRank,
+        allowImport,
+        showArtistLinks,
+        showReleaseLinks,
+        isFavorite,
+        favoriteRank: isFavorite ? Number(favoriteRankValue) : null,
       },
     });
   }
@@ -66,11 +104,12 @@ async function savePlatformPreferences(userId: string, formData: FormData) {
 
 export async function updateSettingsAction(formData: FormData) {
   const user = await requireUser();
+  const timeZone = parseTimeZone(formData.get("timezone"), getEffectiveTimeZone(user.timezone));
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      timezone: String(formData.get("timezone") ?? "UTC"),
+      timezone: timeZone,
     },
   });
 
@@ -107,6 +146,25 @@ export async function updateSettingsAction(formData: FormData) {
   revalidatePath("/discoveries");
 }
 
+export async function updateNotificationSettingsAction(formData: FormData) {
+  const user = await requireUser();
+
+  await prisma.userSettings.upsert({
+    where: { userId: user.id },
+    update: {
+      notifyOnReleaseDay: formData.get("notifyOnReleaseDay") === "on",
+      notifyOnDiscovery: formData.get("notifyOnDiscovery") === "on",
+    },
+    create: {
+      userId: user.id,
+      notifyOnReleaseDay: formData.get("notifyOnReleaseDay") === "on",
+      notifyOnDiscovery: formData.get("notifyOnDiscovery") === "on",
+    },
+  });
+
+  revalidatePath("/settings");
+}
+
 export async function updatePlatformPreferencesAction(formData: FormData) {
   const user = await requireUser();
 
@@ -120,12 +178,13 @@ export async function updatePlatformPreferencesAction(formData: FormData) {
 
 export async function completeOnboardingAction(formData: FormData) {
   const user = await requireUser();
+  const timeZone = parseTimeZone(formData.get("timezone"), getEffectiveTimeZone(user.timezone));
 
   await savePlatformPreferences(user.id, formData);
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      timezone: String(formData.get("timezone") ?? user.timezone ?? "UTC"),
+      timezone: timeZone,
       onboardingCompletedAt: new Date(),
     },
   });

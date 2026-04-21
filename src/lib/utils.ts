@@ -1,5 +1,4 @@
 import { clsx, type ClassValue } from "clsx";
-import { addDays, format } from "date-fns";
 
 export function cn(...values: ClassValue[]) {
   return clsx(values);
@@ -12,14 +11,6 @@ export function normalizeName(value: string) {
     .replace(/[^\w\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-export function releaseDateLabel(value: Date) {
-  return format(value, "EEE, d MMM yyyy");
-}
-
-export function horizonDate(days: number) {
-  return addDays(new Date(), days);
 }
 
 export function absoluteUrl(path: string) {

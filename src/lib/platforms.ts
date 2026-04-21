@@ -18,11 +18,13 @@ export type ProviderCapability = {
   description: string;
   supportsLogin: boolean;
   supportsAccountLink: boolean;
-  supportsFollowImport: boolean;
+  supportsOptionalImport: boolean;
   supportsArtistLinks: boolean;
   supportsReleaseLinks: boolean;
-  supportsCatalogSearch: boolean;
-  supportsReleaseSync: boolean;
+  supportsCoreSearch: boolean;
+  supportsCoreReleaseDiscovery: boolean;
+  supportsOptionalEnrichment: boolean;
+  requiresOperatorConfiguration: boolean;
   supportsExactArtistLinks: boolean;
   supportsExactReleaseLinks: boolean;
 };
@@ -30,79 +32,91 @@ export type ProviderCapability = {
 const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
   [Provider.SPOTIFY]: {
     label: "Spotify",
-    description: "OAuth login, account linking, followed-artist import, and catalog enrichment.",
+    description: "Optional account linking, import, and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsFollowImport: true,
+    supportsOptionalImport: true,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: true,
-    supportsReleaseSync: true,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: true,
     supportsExactArtistLinks: true,
     supportsExactReleaseLinks: true,
   },
   [Provider.APPLE_MUSIC]: {
     label: "Apple Music",
-    description: "Sign in with Apple plus optional MusicKit account linking and outbound links.",
+    description: "Optional account linking and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsFollowImport: true,
+    supportsOptionalImport: true,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: false,
-    supportsReleaseSync: true,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: true,
     supportsExactArtistLinks: true,
     supportsExactReleaseLinks: true,
   },
   [Provider.YOUTUBE_MUSIC]: {
     label: "YouTube Music",
-    description: "Google-based sign-in and outbound links. Import is links-only in this pass.",
+    description: "Optional login-branded links with search fallbacks; not required for core tracking.",
     supportsLogin: true,
     supportsAccountLink: false,
-    supportsFollowImport: false,
+    supportsOptionalImport: false,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: false,
-    supportsReleaseSync: false,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: true,
     supportsExactArtistLinks: false,
     supportsExactReleaseLinks: false,
   },
   [Provider.AMAZON_MUSIC]: {
     label: "Amazon Music",
-    description: "Login with Amazon and outbound links while import/catalog access remains gated.",
+    description: "Optional login-branded links with search fallbacks; not required for core tracking.",
     supportsLogin: true,
     supportsAccountLink: false,
-    supportsFollowImport: false,
+    supportsOptionalImport: false,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: false,
-    supportsReleaseSync: false,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: true,
     supportsExactArtistLinks: false,
     supportsExactReleaseLinks: false,
   },
   [Provider.TIDAL]: {
     label: "TIDAL",
-    description: "OAuth login, account linking, followed-artist import, and catalog enrichment.",
+    description: "Optional account linking, import, and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsFollowImport: true,
+    supportsOptionalImport: true,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: true,
-    supportsReleaseSync: true,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: true,
     supportsExactArtistLinks: true,
     supportsExactReleaseLinks: true,
   },
   [Provider.DEEZER]: {
     label: "Deezer",
-    description: "OAuth login, account linking, import, and catalog enrichment when an existing app is available.",
+    description: "Public catalog enrichment plus optional account linking and import when an existing app is configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsFollowImport: true,
+    supportsOptionalImport: true,
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
-    supportsCatalogSearch: true,
-    supportsReleaseSync: true,
+    supportsCoreSearch: false,
+    supportsCoreReleaseDiscovery: false,
+    supportsOptionalEnrichment: true,
+    requiresOperatorConfiguration: false,
     supportsExactArtistLinks: true,
     supportsExactReleaseLinks: true,
   },
@@ -121,7 +135,7 @@ export function getDefaultProviderPreference(provider: StreamingProvider) {
 
   return {
     provider,
-    allowImport: capability.supportsFollowImport,
+    allowImport: capability.supportsOptionalImport,
     showArtistLinks: capability.supportsArtistLinks,
     showReleaseLinks: capability.supportsReleaseLinks,
     isFavorite: provider === Provider.SPOTIFY || provider === Provider.APPLE_MUSIC,
@@ -152,15 +166,19 @@ export function isProviderConfigured(provider: StreamingProvider) {
 export function getProviderAvailabilityNote(provider: StreamingProvider) {
   const capability = getProviderCapability(provider);
 
+  if (!capability.requiresOperatorConfiguration) {
+    return "Optional enrichment only";
+  }
+
   if (!isProviderConfigured(provider)) {
-    return "Not configured by operator";
+    return "Optional integration not configured";
   }
 
-  if (!capability.supportsFollowImport && !capability.supportsCatalogSearch) {
-    return "Supported for links only";
+  if (!capability.supportsOptionalImport && !capability.supportsOptionalEnrichment) {
+    return "Links only";
   }
 
-  return "Available on this instance";
+  return "Optional integration available";
 }
 
 export function buildArtistDeepLink(provider: Provider, providerArtistId: string): string | null {

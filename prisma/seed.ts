@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 
 import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
+import { getAppDefaultTimeZone } from "@/lib/timezone-server";
 
 const prisma = new PrismaClient();
 
@@ -15,7 +16,7 @@ async function main() {
     create: {
       email: "demo@example.com",
       name: "Demo Listener",
-      timezone: "Europe/Amsterdam",
+      timezone: getAppDefaultTimeZone(),
       passwordHash,
       onboardingCompletedAt: new Date(),
       settings: {

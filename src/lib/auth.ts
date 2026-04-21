@@ -8,6 +8,7 @@ import { Provider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env, isProduction } from "@/lib/env";
 import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
+import { getAppDefaultTimeZone } from "@/lib/timezone-server";
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
@@ -185,6 +186,7 @@ export async function createExternalIdentityUser(input: {
     data: {
       email: input.email,
       name: input.displayName?.trim() || input.email.split("@")[0] || "Freshwax listener",
+      timezone: getAppDefaultTimeZone(),
       externalIdentities: {
         create: {
           provider: input.provider,

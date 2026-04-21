@@ -1,14 +1,15 @@
 "use client";
 
 import { useDeferredValue, useState } from "react";
-import { Headphones, Search, UserMinus } from "lucide-react";
+import { Headphones, RefreshCw, Search, UserMinus } from "lucide-react";
 
-import { unfollowArtistAction } from "@/app/actions/follows";
+import { syncFollowedArtistNowAction, unfollowArtistAction } from "@/app/actions/follows";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
-import { normalizeName, releaseDateLabel } from "@/lib/utils";
+import { formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";
+import { normalizeName } from "@/lib/utils";
 
 type ArtistWatchlistEntry = {
   artistId: string;
@@ -32,7 +33,13 @@ function initialsForArtist(name: string) {
     .join("");
 }
 
-export function ArtistWatchlist({ followed }: { followed: ArtistWatchlistEntry[] }) {
+export function ArtistWatchlist({
+  followed,
+  timeZone,
+}: {
+  followed: ArtistWatchlistEntry[];
+  timeZone: string;
+}) {
   const [filter, setFilter] = useState("");
   const deferredFilter = useDeferredValue(filter);
   const normalizedFilter = normalizeName(deferredFilter);
@@ -108,14 +115,16 @@ export function ArtistWatchlist({ followed }: { followed: ArtistWatchlistEntry[]
                 <p className="text-[var(--muted)]">
                   Last synced{" "}
                   <span className="font-medium text-[var(--text)]">
-                    {follow.lastSyncedAt ? new Date(follow.lastSyncedAt).toLocaleString() : "not yet"}
+                    {follow.lastSyncedAt
+                      ? formatTimestampInTimeZone(follow.lastSyncedAt, timeZone)
+                      : "not yet"}
                   </span>
                 </p>
                 <p className="text-[var(--muted)]">
                   Latest known release{" "}
                   <span className="font-medium text-[var(--text)]">
                     {follow.latestKnownRelease
-                      ? `${follow.latestKnownRelease.title} • ${releaseDateLabel(new Date(follow.latestKnownRelease.releaseDate))}`
+                      ? `${follow.latestKnownRelease.title} • ${formatReleaseDate(new Date(follow.latestKnownRelease.releaseDate))}`
                       : "not collected yet"}
                   </span>
                 </p>
@@ -133,13 +142,23 @@ export function ArtistWatchlist({ followed }: { followed: ArtistWatchlistEntry[]
                 ))}
               </div>
 
-              <form action={unfollowArtistAction} className="mt-auto">
-                <input name="artistId" type="hidden" value={follow.artistId} />
-                <SubmitButton className="ghost-button w-full justify-center" pendingLabel="Removing...">
-                  <UserMinus className="h-4 w-4" />
-                  Unfollow
-                </SubmitButton>
-              </form>
+              <div className="mt-auto grid gap-2 sm:grid-cols-2">
+                <form action={syncFollowedArtistNowAction}>
+                  <input name="artistId" type="hidden" value={follow.artistId} />
+                  <SubmitButton className="ghost-button w-full justify-center" pendingLabel="Syncing...">
+                    <RefreshCw className="h-4 w-4" />
+                    Sync now
+                  </SubmitButton>
+                </form>
+
+                <form action={unfollowArtistAction}>
+                  <input name="artistId" type="hidden" value={follow.artistId} />
+                  <SubmitButton className="ghost-button w-full justify-center" pendingLabel="Removing...">
+                    <UserMinus className="h-4 w-4" />
+                    Unfollow
+                  </SubmitButton>
+                </form>
+              </div>
             </article>
           ))}
         </div>

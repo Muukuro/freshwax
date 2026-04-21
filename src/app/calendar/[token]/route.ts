@@ -2,7 +2,11 @@ import { prisma } from "@/lib/db";
 import { buildCalendarFeed } from "@/lib/calendar";
 import { buildReleaseTypeFilter, filterReleasesForSettings } from "@/lib/data";
 import { buildReleasePlatformLinks } from "@/lib/platform-links";
-import { horizonDate } from "@/lib/utils";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import {
+  getDateOffsetUtcDateForTimeZone,
+  getTodayUtcDateForTimeZone,
+} from "@/lib/timezone";
 
 export async function GET(
   _request: Request,
@@ -26,11 +30,14 @@ export async function GET(
   }
 
   const settings = calendarToken.user.settings;
+  const timeZone = getEffectiveTimeZone(calendarToken.user.timezone);
+  const today = getTodayUtcDateForTimeZone(timeZone);
+  const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings?.futureHorizonDays ?? 180);
   const releases = await prisma.release.findMany({
     where: {
       releaseDate: {
-        gte: new Date(),
-        lte: horizonDate(settings?.futureHorizonDays ?? 180),
+        gte: today,
+        lte: horizon,
       },
       type: settings ? buildReleaseTypeFilter(settings) : undefined,
       artists: {

@@ -1,5 +1,4 @@
 import { ReleaseType, type Prisma } from "@prisma/client";
-import { subDays } from "date-fns";
 
 import { prisma } from "@/lib/db";
 import {
@@ -7,7 +6,11 @@ import {
   buildReleasePlatformLinks,
   type PlatformLinkEntry,
 } from "@/lib/platform-links";
-import { horizonDate } from "@/lib/utils";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import {
+  getDateOffsetUtcDateForTimeZone,
+  getTodayUtcDateForTimeZone,
+} from "@/lib/timezone";
 
 export function buildReleaseTypeFilter(settings: {
   includeSingles: boolean;
@@ -107,6 +110,15 @@ export function filterReleasesForSettings<T extends ReleaseWithArtists>(
   });
 }
 
+export function isReleaseVisibleForSettings<T extends ReleaseWithArtists>(
+  release: T,
+  settings: {
+    hideClassicalComposerAppearances?: boolean;
+  },
+) {
+  return filterReleasesForSettings([release], settings).length > 0;
+}
+
 function releaseInclude(userId: string) {
   return {
     artists: {
@@ -131,13 +143,17 @@ function releaseInclude(userId: string) {
   } satisfies Prisma.ReleaseInclude;
 }
 
-function sortByUserDiscoveryDate<T extends { discoveries?: { discoveredAt: Date }[]; title: string }>(
+function sortByRecentRelease<T extends { releaseDate: Date; discoveries?: { discoveredAt: Date }[]; title: string }>(
   releases: T[],
 ) {
   return releases.sort((left, right) => {
+    const releaseDateDiff = right.releaseDate.getTime() - left.releaseDate.getTime();
+    if (releaseDateDiff !== 0) {
+      return releaseDateDiff;
+    }
+
     const leftDiscoveredAt = left.discoveries?.[0]?.discoveredAt?.getTime() ?? 0;
     const rightDiscoveredAt = right.discoveries?.[0]?.discoveredAt?.getTime() ?? 0;
-
     if (rightDiscoveredAt !== leftDiscoveredAt) {
       return rightDiscoveredAt - leftDiscoveredAt;
     }
@@ -215,21 +231,28 @@ function addArtistPlatformLinks(
 }
 
 export async function getDashboardData(userId: string) {
-  const [settings, preferences] = await Promise.all([
+  const [settings, preferences, user] = await Promise.all([
     prisma.userSettings.findUniqueOrThrow({
       where: { userId },
     }),
     getUserPlatformPreferences(userId),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
   ]);
-  const discoveryCutoff = subDays(new Date(), settings.discoveryWindowDays);
+  const timeZone = getEffectiveTimeZone(user.timezone);
+  const today = getTodayUtcDateForTimeZone(timeZone);
+  const discoveryCutoff = getDateOffsetUtcDateForTimeZone(timeZone, -settings.discoveryWindowDays);
+  const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings.futureHorizonDays);
 
   const [followedArtistsCount, upcoming, discoveredReleases] = await Promise.all([
     prisma.userFollow.count({ where: { userId } }),
     prisma.release.findMany({
       where: {
         releaseDate: {
-          gte: new Date(),
-          lte: horizonDate(settings.futureHorizonDays),
+          gte: today,
+          lte: horizon,
         },
         type: buildReleaseTypeFilter(settings),
         artists: {
@@ -251,13 +274,15 @@ export async function getDashboardData(userId: string) {
       where: {
         releaseDate: {
           gte: discoveryCutoff,
+          lt: today,
         },
         type: buildReleaseTypeFilter(settings),
-        discoveries: {
+        artists: {
           some: {
-            userId,
-            discoveredAt: {
-              gte: discoveryCutoff,
+            artist: {
+              followers: {
+                some: { userId },
+              },
             },
           },
         },
@@ -271,7 +296,7 @@ export async function getDashboardData(userId: string) {
     .map((release) => addReleasePlatformLinks(release, preferences));
   const filteredDiscoveredReleases = filterReleasesForSettings(discoveredReleases, settings);
   const discoveredReleasesCount = filteredDiscoveredReleases.length;
-  const discoveries = sortByUserDiscoveryDate(filteredDiscoveredReleases)
+  const discoveries = sortByRecentRelease(filteredDiscoveredReleases)
     .slice(0, 6)
     .map((release) => addReleasePlatformLinks(release, preferences));
 
@@ -344,12 +369,21 @@ async function getFilteredReleaseFeed(userId: string, where: Prisma.ReleaseWhere
 }
 
 export async function getUpcomingReleases(userId: string) {
-  const settings = await prisma.userSettings.findUniqueOrThrow({ where: { userId } });
+  const [settings, user] = await Promise.all([
+    prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
+  ]);
+  const timeZone = getEffectiveTimeZone(user.timezone);
+  const today = getTodayUtcDateForTimeZone(timeZone);
+  const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings.futureHorizonDays);
 
   return getFilteredReleaseFeed(userId, {
     releaseDate: {
-      gte: new Date(),
-      lte: horizonDate(settings.futureHorizonDays),
+      gte: today,
+      lte: horizon,
     },
     type: buildReleaseTypeFilter(settings),
     artists: {
@@ -366,25 +400,35 @@ export async function getUpcomingReleases(userId: string) {
 }
 
 export async function getDiscoveredReleases(userId: string) {
-  const settings = await prisma.userSettings.findUniqueOrThrow({ where: { userId } });
-  const discoveryCutoff = subDays(new Date(), settings.discoveryWindowDays);
+  const [settings, user] = await Promise.all([
+    prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
+  ]);
+  const timeZone = getEffectiveTimeZone(user.timezone);
+  const today = getTodayUtcDateForTimeZone(timeZone);
+  const discoveryCutoff = getDateOffsetUtcDateForTimeZone(timeZone, -settings.discoveryWindowDays);
   const releases = await getFilteredReleaseFeed(userId, {
     releaseDate: {
       gte: discoveryCutoff,
+      lt: today,
     },
     type: buildReleaseTypeFilter(settings),
-    discoveries: {
+    artists: {
       some: {
-        userId,
-        discoveredAt: {
-          gte: discoveryCutoff,
+        artist: {
+          followers: {
+            some: { userId },
+          },
         },
       },
     },
     ignoredBy: settings.hideIgnored ? { none: { userId } } : undefined,
   });
 
-  return sortByUserDiscoveryDate(releases);
+  return sortByRecentRelease(releases);
 }
 
 export async function getUserPlatformPreferencesWithConnections(userId: string) {

@@ -1,7 +1,6 @@
-import { format } from "date-fns";
-
-import { absoluteUrl, releaseTypeLabel } from "@/lib/utils";
 import { type PlatformLinkEntry } from "@/lib/data";
+import { serializeDateOnlyForIcs } from "@/lib/timezone";
+import { absoluteUrl, releaseTypeLabel } from "@/lib/utils";
 
 type CalendarRelease = {
   id: string;
@@ -51,7 +50,7 @@ export function buildCalendarFeed(
       "BEGIN:VEVENT",
       `UID:release-${release.id}-${token}@new-release-tracker`,
       `DTSTAMP:${timestamp}`,
-      `DTSTART;VALUE=DATE:${format(release.releaseDate, "yyyyMMdd")}`,
+      `DTSTART;VALUE=DATE:${serializeDateOnlyForIcs(release.releaseDate)}`,
       `SUMMARY:${escapeIcs(`${artistNames} — ${release.title}`)}`,
       `DESCRIPTION:${escapeIcs(description)}`,
       "END:VEVENT",

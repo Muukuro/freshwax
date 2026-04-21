@@ -7,10 +7,12 @@ Freshwax is a self-hosted music release tracker with platform-aware preferences,
 - Local signup/signin with persistent sessions plus optional external provider login where configured.
 - First-run onboarding to choose favorite platforms, import defaults, and link visibility.
 - Provider-neutral artist search with canonical matching and per-user follow lists.
+- Credential-free core release tracking powered by canonical MusicBrainz matching.
 - Optional Last.fm username import to seed a watchlist from artists above a per-user minimum listen threshold.
 - Optional platform account linking and config-gated import paths.
-- Upcoming releases dashboard and a missed-recently feed for releases that surfaced after you started tracking an artist.
+- Upcoming releases dashboard plus a recent-releases feed, with late finds marked when Freshwax surfaced them after release day.
 - Private `.ics` calendar feed per user.
+- Browser push notifications per device plus optional operator webhook delivery.
 - Redis-backed BullMQ worker for background synchronization that also gets nudged automatically from authenticated app visits when the watchlist is stale.
 - Dockerized deployment with PostgreSQL and Redis.
 
@@ -72,10 +74,14 @@ npm run dev:worker
 
 ## Environment variables
 
+- Core tracking works without any platform credentials. The provider variables below only enable optional login, import, and enrichment paths.
 - `DATABASE_URL`: PostgreSQL connection string.
 - `REDIS_URL`: Redis connection string for BullMQ. For host-local development against the Compose Redis service, use `redis://localhost:6380`. Compose services override this internally to `redis://redis:6379`.
 - `APP_URL`: Base URL used in calendar links.
 - `LASTFM_API_KEY`: Last.fm API key for username-based artist imports.
+- `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`: VAPID keys for browser push delivery.
+- `NOTIFICATION_WEBHOOK_URL`: Optional instance-wide release-notification webhook.
+- `NOTIFICATION_WEBHOOK_SECRET`: Optional HMAC secret used to sign webhook payloads in the `x-freshwax-signature` header.
 - `DEEZER_APP_ID`: Deezer application id for optional account linking and library import.
 - `DEEZER_APP_SECRET`: Deezer application secret for optional account linking and library import.
 - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`: Spotify OAuth credentials for optional external login and account linking.
@@ -91,7 +97,8 @@ npm run dev:worker
 - `SESSION_TTL_DAYS`: Session duration.
 - `SYNC_INTERVAL_MINUTES`: Repeat interval for full background sync scheduling. Authenticated app visits can also queue a catch-up sync sooner when nothing has run recently.
 - `ARTIST_SYNC_CONCURRENCY`: Number of artist sync jobs the worker should process in parallel. Keep this low to avoid Deezer quota bursts.
-- `DEFAULT_TIMEZONE`: Default timezone for new users.
+- `DEFAULT_TIMEZONE`: Default timezone for new users. If unset, Freshwax falls back to `TZ`, then `UTC`.
+- `TZ`: Optional process timezone fallback used only when `DEFAULT_TIMEZONE` is unset.
 
 ## Deployment notes
 
@@ -103,15 +110,17 @@ npm run dev:worker
 
 ## Assumptions and limitations
 
-- MusicBrainz is the default canonical artist search layer, with Deezer enrichment when available.
+- MusicBrainz is the canonical identity and credential-free core release-discovery layer.
+- Deezer remains optional public enrichment for richer metadata and exact provider mappings when available.
 - Last.fm import is public-read only and resolves artist names into canonical artists first, then attaches provider mappings opportunistically.
 - Deezer account import is optional and requires an existing Deezer app whose callback URL points to `/api/deezer/callback`.
 - Deezer quota-limit responses are retried with exponential backoff and artist syncs default to single-job concurrency so large imports can drain instead of failing immediately.
-- Spotify, YouTube Music, Amazon Music, TIDAL, Apple Music, and Deezer all appear in platform preferences, but not every provider has a complete import/login implementation yet.
+- Spotify, YouTube Music, Amazon Music, TIDAL, Apple Music, and Deezer all appear in platform preferences, but none of them are required for core tracking.
 - TIDAL login/account linking is implemented with PKCE. The TIDAL app should include the redirect URI `/api/auth/tidal/callback` and enable `user.read`, `collection.read`, and `collection.write`.
 - YouTube Music, Amazon Music, and Apple Music still behave as capability-gated or partial providers in parts of the product.
 - Deezer write-back actions such as following albums inside a user account are not implemented because the current integration only relies on stable read-side behavior.
-- Notification delivery is not implemented in v1, but notification candidates are persisted in `NotificationEvent` for recent missed releases.
+- Browser push is per-device and requires VAPID keys plus a Push API-capable browser.
+- Webhook delivery is generic signed JSON and is instance-wide rather than provider-specific.
 - Release type detection is heuristic when provider metadata is incomplete.
 
 Additional design notes live in [docs/architecture.md](/Users/robbert/tools/freshwax/docs/architecture.md).

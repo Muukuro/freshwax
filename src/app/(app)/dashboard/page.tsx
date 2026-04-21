@@ -5,9 +5,11 @@ import { ReleaseCard } from "@/components/release-card";
 import { StatsCard } from "@/components/stats-card";
 import { getDashboardData } from "@/lib/data";
 import { requireUser } from "@/lib/auth";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const timeZone = getEffectiveTimeZone(user.timezone);
   const data = await getDashboardData(user.id);
 
   return (
@@ -48,9 +50,9 @@ export default async function DashboardPage() {
           icon={CalendarDays}
         />
         <StatsCard
-          label="Recent discoveries"
+          label="Recent releases"
           value={String(data.discoveredReleasesCount)}
-          detail={`Found in the last ${data.settings.discoveryWindowDays} days after you started tracking them.`}
+          detail={`Released in the last ${data.settings.discoveryWindowDays} days from artists you follow.`}
           icon={Sparkles}
         />
       </section>
@@ -73,15 +75,17 @@ export default async function DashboardPage() {
               body="Follow a few artists from the search page and the worker will start filling this board with upcoming releases."
             />
           ) : (
-            data.upcoming.map((release) => <ReleaseCard key={release.id} release={release} />)
+            data.upcoming.map((release) => (
+              <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
+            ))
           )}
         </div>
 
           <div className="space-y-4">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Missed recently</p>
-              <h3 className="text-2xl font-semibold text-[var(--text)]">Recent releases surfaced late</h3>
+              <p className="eyebrow">Recent releases</p>
+              <h3 className="text-2xl font-semibold text-[var(--text)]">Latest releases from followed artists</h3>
             </div>
             <a className="ghost-button" href="/discoveries">
               <Sparkles className="h-4 w-4" />
@@ -90,12 +94,17 @@ export default async function DashboardPage() {
           </div>
           {data.discoveries.length === 0 ? (
             <EmptyState
-              title="No missed recent releases"
-              body="Freshwax only treats recent releases as discoveries, so deep back-catalog imports stay out of this feed."
+              title="No recent releases"
+              body="Freshwax keeps this feed focused on the latest releases from artists you follow, while late finds are marked on the cards."
             />
           ) : (
             data.discoveries.map((release) => (
-              <ReleaseCard key={release.id} release={release} showDiscoveredAt />
+              <ReleaseCard
+                key={release.id}
+                release={release}
+                showDiscoveredAt
+                timeZone={timeZone}
+              />
             ))
           )}
         </div>

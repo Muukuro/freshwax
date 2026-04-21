@@ -1,5 +1,5 @@
 import { type Release } from "@prisma/client";
-import { CalendarDays, EyeOff, Music4 } from "lucide-react";
+import { EyeOff, Music4 } from "lucide-react";
 
 import {
   ignoreReleaseAction,
@@ -8,7 +8,8 @@ import {
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
-import { releaseDateLabel, releaseTypeLabel } from "@/lib/utils";
+import { formatReleaseDate, isDiscoveredLate } from "@/lib/timezone";
+import { releaseTypeLabel } from "@/lib/utils";
 
 type ReleaseWithArtists = Release & {
   artists: { artist: { canonicalName: string } }[];
@@ -20,12 +21,17 @@ type ReleaseWithArtists = Release & {
 export function ReleaseCard({
   release,
   showDiscoveredAt = false,
+  timeZone,
 }: {
   release: ReleaseWithArtists;
   showDiscoveredAt?: boolean;
+  timeZone: string;
 }) {
   const artistNames = release.artists.map((entry) => entry.artist.canonicalName).join(", ");
   const ignored = (release.ignoredBy?.length ?? 0) > 0;
+  const discoveredAt = release.discoveries?.[0]?.discoveredAt ?? null;
+  const discoveredLate =
+    discoveredAt !== null && isDiscoveredLate(discoveredAt, release.releaseDate, timeZone);
 
   return (
     <article className="panel overflow-hidden">
@@ -42,19 +48,15 @@ export function ReleaseCard({
               <p className="text-sm text-[var(--muted)]">{artistNames}</p>
             </div>
             <div className="rounded-full border border-[var(--date-chip-border)] bg-[var(--date-chip-bg)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
-              {releaseDateLabel(release.releaseDate)}
+              {formatReleaseDate(release.releaseDate)}
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 text-sm text-[var(--muted)]">
-            <span className="status-pill">
-              <CalendarDays className="h-4 w-4" />
-              Release day
-            </span>
-            {showDiscoveredAt && release.discoveries?.[0] ? (
+            {showDiscoveredAt && discoveredAt && discoveredLate ? (
               <span className="status-pill">
                 <Music4 className="h-4 w-4" />
-                Seen {releaseDateLabel(release.discoveries[0].discoveredAt)}
+                Found late {formatReleaseDate(discoveredAt)}
               </span>
             ) : null}
           </div>

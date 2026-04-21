@@ -2,9 +2,11 @@ import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
 import { requireUser } from "@/lib/auth";
 import { getUpcomingReleases } from "@/lib/data";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
 
 export default async function UpcomingPage() {
   const user = await requireUser();
+  const timeZone = getEffectiveTimeZone(user.timezone);
   const releases = await getUpcomingReleases(user.id);
   const singlesHidden = user.settings?.includeSingles === false;
   const classicalComposerAppearancesHidden =
@@ -36,7 +38,9 @@ export default async function UpcomingPage() {
           body="Either your followed artists do not have future release dates in the current catalog sources yet, or your filters are excluding them."
         />
       ) : (
-        releases.map((release) => <ReleaseCard key={release.id} release={release} />)
+        releases.map((release) => (
+          <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
+        ))
       )}
     </div>
   );

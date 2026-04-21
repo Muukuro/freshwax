@@ -3,6 +3,8 @@ import { Provider } from "@prisma/client";
 import Link from "next/link";
 
 import { PlatformIcon } from "@/components/platform-link";
+import { PushNotificationSettings } from "@/components/push-notification-settings";
+import { TimezoneField } from "@/components/timezone-field";
 
 import { importDeezerFollowsAction, importLastfmArtistsAction, importTidalFollowsAction } from "@/app/actions/follows";
 import { ImportForm } from "@/components/import-form";
@@ -15,11 +17,13 @@ import {
   disconnectTidalAction,
   rotateCalendarTokenAction,
   saveLastfmUsernameAction,
+  updateNotificationSettingsAction,
   updatePlatformPreferencesAction,
   updateSettingsAction,
 } from "@/app/actions/settings";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
+import { env } from "@/lib/env";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { absoluteUrl } from "@/lib/utils";
 import {
@@ -30,6 +34,8 @@ import {
   isProviderConfigured,
 } from "@/lib/platforms";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
+import { getCoreModeSummary } from "@/lib/source-strategy";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
 
 function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provider: Provider) {
   switch (provider) {
@@ -71,6 +77,7 @@ function disconnectActionFor(provider: Provider) {
 
 export default async function SettingsPage() {
   const user = await requireUser();
+  const timeZone = getEffectiveTimeZone(user.timezone);
   const calendarUrl = absoluteUrl(`/calendar/${user.calendarToken?.token ?? ""}.ics`);
   const lastfmConfigured = isLastfmConfigured();
   const preferenceByProvider = new Map(
@@ -83,30 +90,31 @@ export default async function SettingsPage() {
         <p className="eyebrow">Filtering</p>
         <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Tune what counts as relevant</h2>
 
-        <form action={updateSettingsAction} className="mt-8 grid gap-6 md:grid-cols-2">
-          <label className="field">
-            <span>Timezone</span>
-            <input defaultValue={user.timezone} name="timezone" type="text" />
-          </label>
-          <label className="field">
-            <span>Future horizon</span>
-            <input
-              defaultValue={user.settings?.futureHorizonDays ?? 180}
-              min="14"
-              name="futureHorizonDays"
-              type="number"
-            />
-          </label>
-          <label className="field">
-            <span>Discovery window</span>
-            <input
-              defaultValue={user.settings?.discoveryWindowDays ?? 30}
-              min="1"
-              name="discoveryWindowDays"
-              type="number"
-            />
-          </label>
-          <div className="field md:col-span-2 gap-3">
+        <form action={updateSettingsAction} className="mt-8 grid gap-6">
+          <div>
+            <TimezoneField defaultValue={timeZone} name="timezone" />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <label className="field h-full justify-between">
+              <span>Future horizon</span>
+              <input
+                defaultValue={user.settings?.futureHorizonDays ?? 180}
+                min="14"
+                name="futureHorizonDays"
+                type="number"
+              />
+            </label>
+            <label className="field h-full justify-between">
+              <span>Recent releases window</span>
+              <input
+                defaultValue={user.settings?.discoveryWindowDays ?? 30}
+                min="1"
+                name="discoveryWindowDays"
+                type="number"
+              />
+            </label>
+          </div>
+          <div className="field gap-3">
             <span>Release types</span>
             <div className="flex flex-col gap-2">
               <label className="check">
@@ -168,7 +176,7 @@ export default async function SettingsPage() {
             </div>
           </div>
 
-          <div className="md:col-span-2">
+          <div>
             <SubmitButton className="primary-button" pendingLabel="Saving...">
               Save settings
             </SubmitButton>
@@ -194,10 +202,16 @@ export default async function SettingsPage() {
         <article className="panel">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="eyebrow">Import sources</p>
-              <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Connect or gate platforms</h2>
+              <p className="eyebrow">Core tracking</p>
+              <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">External connections</h2>
+              <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                {getCoreModeSummary()}
+              </p>
             </div>
             <SyncQueueStatus />
+          </div>
+          <div className="mt-6">
+            <p className="eyebrow">Available integrations</p>
           </div>
           <div className="mt-6 space-y-4">
             {STREAMING_PROVIDERS.map((provider, index) => {
@@ -205,6 +219,10 @@ export default async function SettingsPage() {
               const connectedAs = connectionSummary(user, provider);
               const disconnectAction = disconnectActionFor(provider);
               const preference = preferenceByProvider.get(provider);
+              const providerConfigured = isProviderConfigured(provider);
+              const canImportFromProvider =
+                capability.supportsOptionalImport &&
+                (!capability.requiresOperatorConfiguration || providerConfigured);
 
               return (
                 <article key={provider} className="panel-muted space-y-4 p-4">
@@ -229,54 +247,59 @@ export default async function SettingsPage() {
                     </span>
                   </div>
 
-                  {isProviderConfigured(provider) ? (
-                    <form action={updatePlatformPreferencesAction} className="space-y-3">
-                      <input defaultValue={preference?.favoriteRank ?? index + 1} name={`favoriteRank:${provider}`} type="hidden" />
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.isFavorite ?? false} name={`favorite:${provider}`} type="checkbox" />
-                          <div>
-                            <p className="text-sm font-medium text-[var(--text)]">Favorite</p>
-                            <p className="text-xs leading-5 text-[var(--muted)]">Pin to the top of link rows</p>
-                          </div>
-                        </label>
-                        <label className={`flex items-start gap-3 ${!capability.supportsFollowImport ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
-                          <input
-                            className="mt-0.5 shrink-0"
-                            defaultChecked={preference?.allowImport ?? capability.supportsFollowImport}
-                            disabled={!capability.supportsFollowImport}
-                            name={`allowImport:${provider}`}
-                            type="checkbox"
-                          />
-                          <div>
-                            <p className="text-sm font-medium text-[var(--text)]">Import follows</p>
-                            <p className="text-xs leading-5 text-[var(--muted)]">Sync followed artists from this platform</p>
-                          </div>
-                        </label>
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks} name={`showArtistLinks:${provider}`} type="checkbox" />
-                          <div>
-                            <p className="text-sm font-medium text-[var(--text)]">Artist links</p>
-                            <p className="text-xs leading-5 text-[var(--muted)]">Show artist profile links on your watchlist</p>
-                          </div>
-                        </label>
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input className="mt-0.5 shrink-0" defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks} name={`showReleaseLinks:${provider}`} type="checkbox" />
-                          <div>
-                            <p className="text-sm font-medium text-[var(--text)]">Release links</p>
-                            <p className="text-xs leading-5 text-[var(--muted)]">Show release links in feeds and calendar</p>
-                          </div>
-                        </label>
-                      </div>
-                      <SubmitButton className="ghost-button" pendingLabel="Saving...">
-                        Save
-                      </SubmitButton>
-                    </form>
-                  ) : null}
+                  <form action={updatePlatformPreferencesAction} className="space-y-3">
+                    <input defaultValue={preference?.favoriteRank ?? index + 1} name={`favoriteRank:${provider}`} type="hidden" />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input name={`favorite:${provider}`} type="hidden" value="off" />
+                        <input className="mt-0.5 shrink-0" defaultChecked={preference?.isFavorite ?? false} name={`favorite:${provider}`} type="checkbox" value="on" />
+                        <div>
+                          <p className="text-sm font-medium text-[var(--text)]">Favorite</p>
+                          <p className="text-xs leading-5 text-[var(--muted)]">Pin to the top of link rows</p>
+                        </div>
+                      </label>
+                      <label className={`flex items-start gap-3 ${!canImportFromProvider ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+                        {canImportFromProvider ? (
+                          <input name={`allowImport:${provider}`} type="hidden" value="off" />
+                        ) : null}
+                        <input
+                          className="mt-0.5 shrink-0"
+                          defaultChecked={preference?.allowImport ?? capability.supportsOptionalImport}
+                          disabled={!canImportFromProvider}
+                          name={`allowImport:${provider}`}
+                          type="checkbox"
+                          value="on"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-[var(--text)]">Import follows</p>
+                          <p className="text-xs leading-5 text-[var(--muted)]">Use this platform as an optional watchlist import source</p>
+                        </div>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input name={`showArtistLinks:${provider}`} type="hidden" value="off" />
+                        <input className="mt-0.5 shrink-0" defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks} name={`showArtistLinks:${provider}`} type="checkbox" value="on" />
+                        <div>
+                          <p className="text-sm font-medium text-[var(--text)]">Artist links</p>
+                          <p className="text-xs leading-5 text-[var(--muted)]">Show artist profile links on your watchlist</p>
+                        </div>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input name={`showReleaseLinks:${provider}`} type="hidden" value="off" />
+                        <input className="mt-0.5 shrink-0" defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks} name={`showReleaseLinks:${provider}`} type="checkbox" value="on" />
+                        <div>
+                          <p className="text-sm font-medium text-[var(--text)]">Release links</p>
+                          <p className="text-xs leading-5 text-[var(--muted)]">Show release links in feeds and calendar</p>
+                        </div>
+                      </label>
+                    </div>
+                    <SubmitButton className="ghost-button" pendingLabel="Saving...">
+                      Save
+                    </SubmitButton>
+                  </form>
 
-                  <div className={`flex flex-wrap gap-3 ${isProviderConfigured(provider) ? "border-t border-[var(--panel-border)] pt-4" : ""}`}>
+                  <div className={`flex flex-wrap gap-3 ${providerConfigured ? "border-t border-[var(--panel-border)] pt-4" : ""}`}>
                     {capability.supportsLogin &&
-                    isProviderConfigured(provider) &&
+                    providerConfigured &&
                     isExternalAuthImplemented(provider) ? (
                       <a className="ghost-button" href={`/api/auth/${provider.toLowerCase()}/connect`}>
                         <Link2 className="h-4 w-4" />
@@ -310,7 +333,7 @@ export default async function SettingsPage() {
         <article className="panel">
           <p className="eyebrow">Last.fm</p>
           <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">
-            Username-based import sidecar
+            Optional username-based import
           </h2>
           <form action={saveLastfmUsernameAction} className="mt-6 space-y-4">
             <label className="field">
@@ -356,6 +379,40 @@ export default async function SettingsPage() {
               </div>
             </div>
           ) : null}
+        </article>
+
+        <article className="panel">
+          <p className="eyebrow">Notifications</p>
+          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Release alerts</h2>
+          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+            Enable browser push for this device and choose which alerts Freshwax should send.
+          </p>
+
+          <div className="mt-6">
+            <PushNotificationSettings vapidPublicKey={env.WEB_PUSH_PUBLIC_KEY ?? null} />
+          </div>
+
+          <form action={updateNotificationSettingsAction} className="mt-6 space-y-3">
+            <label className="check">
+              <input
+                defaultChecked={user.settings?.notifyOnReleaseDay ?? true}
+                name="notifyOnReleaseDay"
+                type="checkbox"
+              />
+              Release day alerts at 09:00 in your timezone
+            </label>
+            <label className="check">
+              <input
+                defaultChecked={user.settings?.notifyOnDiscovery ?? false}
+                name="notifyOnDiscovery"
+                type="checkbox"
+              />
+              Newly found release alerts
+            </label>
+            <SubmitButton className="ghost-button" pendingLabel="Saving...">
+              Save notification settings
+            </SubmitButton>
+          </form>
         </article>
 
         <article className="panel">

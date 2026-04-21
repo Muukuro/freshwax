@@ -5,9 +5,12 @@ import { Provider } from "@prisma/client";
 import { completeOnboardingAction } from "@/app/actions/settings";
 import { PlatformIcon } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
+import { TimezoneField } from "@/components/timezone-field";
 import { requireUser } from "@/lib/auth";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { getProviderAvailabilityNote, getProviderCapability, getProviderLabel, STREAMING_PROVIDERS } from "@/lib/platforms";
+import { getCoreModeSummary } from "@/lib/source-strategy";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
 
 function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provider: Provider) {
   switch (provider) {
@@ -34,6 +37,7 @@ function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provid
 
 export default async function OnboardingPage() {
   const user = await requireUser();
+  const timeZone = getEffectiveTimeZone(user.timezone);
   const preferenceByProvider = new Map(
     user.platformPreferences.map((preference) => [preference.provider, preference]),
   );
@@ -50,7 +54,8 @@ export default async function OnboardingPage() {
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">
               Pick your favorite listening destinations, decide which services may seed your
               watchlist, and choose which links should show up on artists and releases. You can skip
-              every connection step and finish this later in Settings.
+              every connection step and finish this later in Settings because core tracking works
+              without platform credentials.
             </p>
           </div>
 
@@ -69,7 +74,7 @@ export default async function OnboardingPage() {
               <div>
                 <p className="font-medium text-[var(--text)]">2. Connection targets</p>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Platforms stay visible even when this instance is not configured yet.
+                  Platform connections stay optional, even when this instance is not configured yet.
                 </p>
               </div>
             </div>
@@ -124,38 +129,48 @@ export default async function OnboardingPage() {
                     />
 
                     <label className="check">
+                      <input name={`favorite:${provider}`} type="hidden" value="off" />
                       <input
                         defaultChecked={preference?.isFavorite ?? false}
                         name={`favorite:${provider}`}
                         type="checkbox"
+                        value="on"
                       />
                       Mark as favorite
                     </label>
 
                     <label className="check">
+                      {capability.supportsOptionalImport ? (
+                        <input name={`allowImport:${provider}`} type="hidden" value="off" />
+                      ) : null}
                       <input
-                        defaultChecked={preference?.allowImport ?? capability.supportsFollowImport}
-                        disabled={!capability.supportsFollowImport}
+                        defaultChecked={preference?.allowImport ?? capability.supportsOptionalImport}
+                        disabled={!capability.supportsOptionalImport}
                         name={`allowImport:${provider}`}
                         type="checkbox"
+                        value="on"
                       />
                       Allow followed-artist import
                     </label>
 
                     <label className="check">
+                      <input name={`showArtistLinks:${provider}`} type="hidden" value="off" />
                       <input
                         defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks}
                         name={`showArtistLinks:${provider}`}
                         type="checkbox"
+                        value="on"
                       />
                       Show artist links
                     </label>
 
                     <label className="check">
+                      <input name={`showReleaseLinks:${provider}`} type="hidden" value="off" />
                       <input
                         defaultChecked={preference?.showReleaseLinks ?? capability.supportsReleaseLinks}
                         name={`showReleaseLinks:${provider}`}
                         type="checkbox"
+                        value="on"
                       />
                       Show release links
                     </label>
@@ -180,10 +195,7 @@ export default async function OnboardingPage() {
           <section className="panel grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
               <p className="eyebrow">Release defaults</p>
-              <label className="field">
-                <span>Timezone</span>
-                <input defaultValue={user.timezone} name="timezone" type="text" />
-              </label>
+              <TimezoneField defaultValue={timeZone} name="timezone" />
               <label className="check">
                 <input defaultChecked name="includeSingles" type="checkbox" />
                 Include singles
@@ -208,8 +220,7 @@ export default async function OnboardingPage() {
 
             <div className="panel-muted space-y-4 p-4">
               <p className="text-sm leading-7 text-[var(--muted)]">
-                This onboarding pass does not require any platform connection. Save your defaults now
-                and link accounts later from Settings or the Artists page.
+                {getCoreModeSummary()}
               </p>
 
               <div className="flex flex-wrap gap-3">

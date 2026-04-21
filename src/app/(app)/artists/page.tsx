@@ -1,5 +1,5 @@
-import { Headphones, Link2, Search } from "lucide-react";
-import { Provider } from "@prisma/client";
+import Link from "next/link";
+import { Headphones, Search } from "lucide-react";
 
 import {
   followArtistAction,
@@ -9,13 +9,14 @@ import {
 import { ArtistWatchlist } from "@/components/artist-watchlist";
 import { EmptyState } from "@/components/empty-state";
 import { ImportForm } from "@/components/import-form";
-import { PlatformIcon, PlatformLink } from "@/components/platform-link";
+import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
 import { searchCatalogArtists } from "@/lib/catalog";
 import { getFollowedArtists } from "@/lib/data";
-import { getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
+import { formatTimestampInTimeZone } from "@/lib/timezone";
+import { getEffectiveTimeZone } from "@/lib/timezone-server";
 import { normalizeName } from "@/lib/utils";
 
 function initialsForArtist(name: string) {
@@ -32,6 +33,7 @@ export default async function ArtistsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const user = await requireUser();
+  const timeZone = getEffectiveTimeZone(user.timezone);
   const followed = await getFollowedArtists(user.id);
   const params = await searchParams;
   const query = params.q?.trim() ?? "";
@@ -43,89 +45,13 @@ export default async function ArtistsPage({
     <div className="space-y-8">
       <section className="space-y-4">
         <div className="section-heading">
-          <div>
+          <div className="space-y-2">
             <p className="eyebrow">Artist search</p>
-            <h2 className="text-3xl font-semibold text-[var(--text)]">Add artists without locking into one platform</h2>
+            <h2 className="text-3xl font-semibold text-[var(--text)]">Find artists to follow</h2>
+            <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
+              Search the catalog, then use Settings for provider connections and import preferences.
+            </p>
           </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <article className="panel space-y-4 text-sm leading-7 text-[var(--muted)]">
-            <div>
-              <p className="eyebrow">Import source</p>
-              <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">Last.fm top artists</h3>
-            </div>
-            <p>
-              Import from your saved Last.fm username. Freshwax resolves names into canonical artists
-              first, then adds provider mappings opportunistically.
-            </p>
-            <div className="panel-muted p-4">
-              {user.lastfmConnection ? (
-                <>
-                  Saved as{" "}
-                  <span className="font-medium text-[var(--text)]">
-                    {user.lastfmConnection.lastfmUserName}
-                  </span>
-                  . Last imported{" "}
-                  {user.lastfmConnection.lastImportedAt
-                    ? user.lastfmConnection.lastImportedAt.toLocaleString()
-                    : "never"}
-                  .
-                </>
-              ) : lastfmConfigured ? (
-                "Add your Last.fm username in Settings to import your top artists."
-              ) : (
-                "Last.fm import is disabled until LASTFM_API_KEY is configured."
-              )}
-            </div>
-            {user.lastfmConnection ? (
-              <ImportForm
-                action={importLastfmArtistsAction}
-                label="Import from Last.fm"
-                className="ghost-button"
-              />
-            ) : null}
-          </article>
-
-          <article className="panel space-y-4 text-sm leading-7 text-[var(--muted)]">
-            <div>
-              <p className="eyebrow">Import source</p>
-              <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">
-                Streaming platforms
-              </h3>
-            </div>
-            <p>
-              Providers stay visible even when they are config-gated. Connect the ones you use in
-              Settings, then import where account access is available on this instance.
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {[Provider.SPOTIFY, Provider.APPLE_MUSIC, Provider.YOUTUBE_MUSIC, Provider.AMAZON_MUSIC, Provider.TIDAL, Provider.DEEZER].map((provider) => {
-                const capability = getProviderCapability(provider);
-                return (
-                  <div key={provider} className="panel-muted p-3">
-                    <div className="flex items-center gap-2">
-                      <PlatformIcon provider={provider} size="sm" />
-                      <p className="font-medium text-[var(--text)]">{getProviderLabel(provider)}</p>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
-                      {isProviderConfigured(provider)
-                        ? capability.supportsFollowImport
-                          ? "Import-capable when linked"
-                          : "Visible for login or links only"
-                        : "Not configured by operator"}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-            {user.deezerConnection ? (
-              <ImportForm
-                action={importDeezerFollowsAction}
-                label="Import from Deezer"
-                className="ghost-button"
-              />
-            ) : null}
-          </article>
         </div>
 
         <form className="panel flex flex-col gap-4 md:flex-row">
@@ -138,6 +64,48 @@ export default async function ArtistsPage({
             Search
           </button>
         </form>
+
+        <div className="panel flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1 text-sm leading-6 text-[var(--muted)]">
+            {user.lastfmConnection ? (
+              <p>
+                Last.fm ready as{" "}
+                <span className="font-medium text-[var(--text)]">
+                  {user.lastfmConnection.lastfmUserName}
+                </span>
+                . Last imported{" "}
+                {user.lastfmConnection.lastImportedAt
+                  ? formatTimestampInTimeZone(user.lastfmConnection.lastImportedAt, timeZone)
+                  : "never"}
+                .
+              </p>
+            ) : lastfmConfigured ? (
+              <p>Import sources and provider connections live in Settings.</p>
+            ) : (
+              <p>Last.fm import is disabled until `LASTFM_API_KEY` is configured.</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            {user.lastfmConnection ? (
+              <ImportForm
+                action={importLastfmArtistsAction}
+                label="Import from Last.fm"
+                className="ghost-button"
+              />
+            ) : null}
+            {user.deezerConnection ? (
+              <ImportForm
+                action={importDeezerFollowsAction}
+                label="Import from Deezer"
+                className="ghost-button"
+              />
+            ) : null}
+            <Link className="ghost-button" href="/settings">
+              Manage in Settings
+            </Link>
+          </div>
+        </div>
 
         <div className="space-y-3">
           {query && results.length === 0 ? (
@@ -236,10 +204,10 @@ export default async function ArtistsPage({
         {followed.length === 0 ? (
           <EmptyState
             title="No followed artists yet"
-            body="Use search, import from Last.fm, or connect a platform to seed your watchlist."
+            body="Use search here, then manage imports and provider connections in Settings."
           />
         ) : (
-          <ArtistWatchlist followed={followed} />
+          <ArtistWatchlist followed={followed} timeZone={timeZone} />
         )}
       </section>
     </div>

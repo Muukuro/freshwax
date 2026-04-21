@@ -12,6 +12,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getAppDefaultTimeZone } from "@/lib/timezone-server";
 
 const authSchema = z.object({
   email: z.email(),
@@ -43,6 +44,7 @@ export async function signUp(formData: FormData) {
       email: parsed.data.email,
       name: parsed.data.name,
       passwordHash,
+      timezone: getAppDefaultTimeZone(),
     },
   });
 

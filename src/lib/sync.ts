@@ -1,5 +1,4 @@
 import { JobKind, JobStatus, Provider, type Prisma } from "@prisma/client";
-import { subDays } from "date-fns";
 
 import { prisma } from "@/lib/db";
 import {
@@ -10,17 +9,26 @@ import {
 } from "@/lib/providers/deezer";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
 import {
+  fetchArtistReleaseGroupsByMbid,
   fetchMbPlatformMappingsByMbid,
   fetchMbReleasePlatformMappings,
+  fetchMbReleasePlatformMappingsByReleaseGroupMbid,
   lookupMbidByUrl,
   searchArtistMbid,
 } from "@/lib/providers/musicbrainz";
 import {
   fetchWikidataPlatformMappingsByMbid,
 } from "@/lib/providers/wikidata";
+import {
+  backfillReleaseDayNotificationsForFollow,
+  createReleaseDayNotifications,
+  createReleaseDiscoveredNotifications,
+} from "@/lib/notifications";
 import { buildTidalReleaseSearchUrl, fetchTidalFollowedArtists } from "@/lib/providers/tidal";
 import { classifyReleaseType } from "@/lib/release-types";
 import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
+import { getAppDefaultTimeZone, getEffectiveTimeZone } from "@/lib/timezone-server";
+import { getDateOffsetUtcDateForTimeZone, getTodayUtcDateForTimeZone } from "@/lib/timezone";
 import { normalizeName } from "@/lib/utils";
 
 type ArtistSearchResult = {
@@ -32,6 +40,21 @@ type ArtistSearchResult = {
   imageUrl: string | null;
   deezerFans: number | null;
   raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+};
+
+type CoreReleaseCandidate = {
+  title: string;
+  normalizedTitle: string;
+  releaseDate: string;
+  type: Prisma.ReleaseCreateInput["type"];
+  coverUrl: string | null;
+  deezerUrl: string | null;
+  tidalUrl: string | null;
+  confidence: number;
+  rawSource: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+  releaseGroupMbid?: string | null;
+  deezerProviderReleaseId?: string | null;
+  deezerRaw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
 };
 
 const CLASSICAL_GENRE_ID = 98;
@@ -54,7 +77,12 @@ function shouldCaptureAttributionHints(
   }
 
   const releaseDate = new Date(`${release.releaseDate}T00:00:00.000Z`);
-  return releaseDate >= subDays(new Date(), maxDiscoveryWindowDays);
+  const discoveryCutoff = getDateOffsetUtcDateForTimeZone(
+    getAppDefaultTimeZone(),
+    -maxDiscoveryWindowDays,
+  );
+
+  return releaseDate >= discoveryCutoff;
 }
 
 async function enrichReleaseRawSource(
@@ -91,6 +119,21 @@ async function enrichReleaseRawSource(
     console.error("Failed to enrich Deezer release attribution hints", error);
     return release.raw;
   }
+}
+
+function toInputJsonValue(
+  value: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined,
+): Prisma.InputJsonValue | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === "object" && "toJSON" in value && typeof value.toJSON === "function") {
+    const normalized = value.toJSON();
+    return normalized === null ? undefined : (normalized as Prisma.InputJsonValue);
+  }
+
+  return value as Prisma.InputJsonValue;
 }
 
 /**
@@ -138,6 +181,129 @@ async function resolveArtistMbid(
   } catch {
     return null;
   }
+}
+
+function mapMusicBrainzReleaseType(
+  primaryType: string | null,
+  secondaryTypes: string[],
+): Prisma.ReleaseCreateInput["type"] {
+  const normalizedPrimaryType = primaryType?.toLowerCase() ?? "";
+  const normalizedSecondaryTypes = secondaryTypes.map((type) => type.toLowerCase());
+
+  if (normalizedSecondaryTypes.includes("live")) return "LIVE";
+  if (normalizedSecondaryTypes.includes("compilation")) return "COMPILATION";
+  if (normalizedSecondaryTypes.includes("remix") || normalizedSecondaryTypes.includes("dj-mix")) {
+    return "COMPILATION";
+  }
+
+  switch (normalizedPrimaryType) {
+    case "album":
+      return "ALBUM";
+    case "single":
+      return "SINGLE";
+    case "ep":
+      return "EP";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+async function buildCoreReleaseCandidates(
+  artistName: string,
+  mbid: string,
+  deezerMapping: { providerArtistId: string } | null,
+  maxDiscoveryWindowDays: number,
+) {
+  const mbReleaseGroups = await fetchArtistReleaseGroupsByMbid(mbid);
+  const releaseByKey = new Map<string, CoreReleaseCandidate>();
+
+  for (const releaseGroup of mbReleaseGroups) {
+    const normalizedTitle = normalizeName(releaseGroup.title);
+    if (!normalizedTitle) continue;
+
+    const key = `${normalizedTitle}:${releaseGroup.firstReleaseDate}`;
+    releaseByKey.set(key, {
+      title: releaseGroup.title,
+      normalizedTitle,
+      releaseDate: releaseGroup.firstReleaseDate,
+      type: mapMusicBrainzReleaseType(releaseGroup.primaryType, releaseGroup.secondaryTypes),
+      coverUrl: null,
+      deezerUrl: null,
+      tidalUrl: buildTidalReleaseSearchUrl(artistName, releaseGroup.title),
+      confidence: 0.7,
+      rawSource: {
+        source: "musicbrainz",
+        releaseGroupId: releaseGroup.releaseGroupId,
+        primaryType: releaseGroup.primaryType,
+        secondaryTypes: releaseGroup.secondaryTypes,
+      } satisfies Prisma.InputJsonValue,
+      releaseGroupMbid: releaseGroup.releaseGroupId,
+      deezerProviderReleaseId: null,
+      deezerRaw: undefined,
+    });
+  }
+
+  if (!deezerMapping) {
+    return [...releaseByKey.values()];
+  }
+
+  const deezerReleases = await fetchArtistReleases(deezerMapping.providerArtistId).catch(() => []);
+  for (const release of deezerReleases) {
+    const normalizedTitle = normalizeName(release.title);
+    if (!normalizedTitle) continue;
+
+    const key = `${normalizedTitle}:${release.releaseDate}`;
+    const existing = releaseByKey.get(key);
+    const rawSource = await enrichReleaseRawSource(release, maxDiscoveryWindowDays);
+    const deezerRaw = toInputJsonValue(rawSource ?? release.raw);
+
+    if (existing) {
+      releaseByKey.set(key, {
+        ...existing,
+        coverUrl: release.coverUrl ?? existing.coverUrl,
+        deezerUrl: release.deezerUrl,
+        tidalUrl: buildTidalReleaseSearchUrl(artistName, release.title),
+        confidence: Math.max(existing.confidence, 0.95),
+        rawSource: deezerRaw
+          ? ({
+              ...(typeof existing.rawSource === "object" &&
+              existing.rawSource &&
+              !Array.isArray(existing.rawSource)
+                ? existing.rawSource
+                : {}),
+              deezer: deezerRaw,
+            } satisfies Prisma.InputJsonValue)
+          : existing.rawSource,
+        deezerProviderReleaseId: release.providerReleaseId,
+        deezerRaw: release.raw,
+      });
+      continue;
+    }
+
+    releaseByKey.set(key, {
+      title: release.title,
+      normalizedTitle,
+      releaseDate: release.releaseDate,
+      type: classifyReleaseType(release.recordType, release.title),
+      coverUrl: release.coverUrl,
+      deezerUrl: release.deezerUrl,
+      tidalUrl: buildTidalReleaseSearchUrl(artistName, release.title),
+      confidence: 0.6,
+      rawSource: deezerRaw
+        ? ({
+            source: "deezer-enrichment",
+            deezer: deezerRaw,
+          } satisfies Prisma.InputJsonValue)
+        : ({
+            source: "deezer-enrichment",
+          } satisfies Prisma.InputJsonValue),
+      releaseGroupMbid: null,
+      deezerProviderReleaseId: release.providerReleaseId,
+      deezerRaw: release.raw,
+    });
+  }
+
+  return [...releaseByKey.values()];
 }
 
 export async function followArtistForUser(userId: string, artistResult: ArtistSearchResult) {
@@ -231,11 +397,21 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
     },
   });
 
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId },
-    select: { discoveryWindowDays: true },
-  });
-  const discoveryCutoff = subDays(new Date(), settings?.discoveryWindowDays ?? 30);
+  const [settings, user] = await Promise.all([
+    prisma.userSettings.findUnique({
+      where: { userId },
+      select: { discoveryWindowDays: true },
+    }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { timezone: true },
+    }),
+  ]);
+  const timeZone = getEffectiveTimeZone(user.timezone);
+  const discoveryCutoff = getDateOffsetUtcDateForTimeZone(
+    timeZone,
+    -(settings?.discoveryWindowDays ?? 30),
+  );
 
   const existingReleases = await prisma.release.findMany({
     where: {
@@ -262,6 +438,8 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
       skipDuplicates: true,
     });
   }
+
+  await backfillReleaseDayNotificationsForFollow(userId, artist.id, timeZone);
 
   return artist;
 }
@@ -443,8 +621,16 @@ export async function syncAllArtists() {
   }
 }
 
-async function enrichReleasePlatformMappings(releaseId: string, deezerAlbumId: string) {
-  const mbMappings = await fetchMbReleasePlatformMappings(deezerAlbumId).catch(() => []);
+async function enrichReleasePlatformMappings(
+  releaseId: string,
+  input: { deezerAlbumId?: string | null; releaseGroupMbid?: string | null },
+) {
+  const mbMappings = input.releaseGroupMbid
+    ? await fetchMbReleasePlatformMappingsByReleaseGroupMbid(input.releaseGroupMbid).catch(() => [])
+    : input.deezerAlbumId
+      ? await fetchMbReleasePlatformMappings(input.deezerAlbumId).catch(() => [])
+      : [];
+
   for (const mapping of mbMappings) {
     await prisma.releaseProviderMapping.upsert({
       where: {
@@ -533,9 +719,25 @@ export async function syncArtist(artistId: string, userId?: string) {
       }
     }
 
-    // ── Step 2: Lazy Deezer discovery ───────────────────────────────────────
-    // If no Deezer mapping exists yet (e.g. artist was imported from TIDAL or
-    // Last.fm), try to find one by name so release sync can proceed.
+    // ── Step 2: Canonical release discovery ─────────────────────────────────
+    // Resolve a credential-free release feed via MusicBrainz. Deezer remains
+    // optional enrichment and must not gate sync.
+    const mbid = await resolveArtistMbid(artist.canonicalName, artist.mappings);
+
+    if (!mbid) {
+      await prisma.userFollow.updateMany({
+        where: { artistId },
+        data: { lastSyncedAt: new Date() },
+      });
+      await updateSyncJobLog(job, {
+        status: JobStatus.SUCCEEDED,
+        message: "No canonical MusicBrainz match found — release sync skipped",
+      });
+      return;
+    }
+
+    // ── Step 3: Optional platform enrichment ────────────────────────────────
+    // Resolve artist mappings best-effort, but never require them for core sync.
     let deezerMapping = artist.mappings.find((entry) => entry.provider === Provider.DEEZER);
     if (!deezerMapping) {
       const deezerMatch = await resolveArtistSearchResultByName(artist.canonicalName);
@@ -559,76 +761,93 @@ export async function syncArtist(artistId: string, userId?: string) {
         deezerMapping = upserted;
       }
     }
-
-    if (!deezerMapping) {
-      await prisma.userFollow.updateMany({
-        where: { artistId },
-        data: { lastSyncedAt: new Date() },
-      });
-      await updateSyncJobLog(job, {
-        status: JobStatus.SUCCEEDED,
-        message: "No Deezer mapping found — release sync skipped",
-      });
-      return;
-    }
-
-    const remoteReleases = await fetchArtistReleases(deezerMapping.providerArtistId);
-    const providerIds = remoteReleases.map((release) => release.providerReleaseId);
-    const existingMappings = await prisma.releaseProviderMapping.findMany({
-      where: {
-        provider: Provider.DEEZER,
-        providerReleaseId: { in: providerIds },
-      },
-      include: {
-        release: {
-          include: { mappings: true },
-        },
-      },
-    });
-
-    const mappingByProviderId = new Map(
-      existingMappings.map((entry) => [entry.providerReleaseId, entry]),
-    );
-    const followerSettings = artist.followers.length
-      ? await prisma.userSettings.findMany({
+    const followerUsers = artist.followers.length
+      ? await prisma.user.findMany({
           where: {
-            userId: {
+            id: {
               in: artist.followers.map((follow) => follow.userId),
             },
           },
           select: {
-            userId: true,
-            discoveryWindowDays: true,
+            id: true,
+            timezone: true,
+            settings: {
+              select: {
+                discoveryWindowDays: true,
+              },
+            },
           },
         })
       : [];
     const discoveryWindowByUserId = new Map(
-      followerSettings.map((entry) => [entry.userId, entry.discoveryWindowDays]),
+      followerUsers.map((entry) => [entry.id, entry.settings?.discoveryWindowDays ?? 30]),
+    );
+    const timezoneByUserId = new Map(
+      followerUsers.map((entry) => [entry.id, getEffectiveTimeZone(entry.timezone)]),
     );
     const maxDiscoveryWindowDays = Math.max(
       30,
-      ...followerSettings.map((entry) => entry.discoveryWindowDays),
+      ...followerUsers.map((entry) => entry.settings?.discoveryWindowDays ?? 30),
+    );
+    const today = getTodayUtcDateForTimeZone(getAppDefaultTimeZone());
+
+    const remoteReleases = await buildCoreReleaseCandidates(
+      artist.canonicalName,
+      mbid,
+      deezerMapping
+        ? {
+            providerArtistId: deezerMapping.providerArtistId,
+          }
+        : null,
+      maxDiscoveryWindowDays,
     );
 
     for (const release of remoteReleases) {
-      const existing = mappingByProviderId.get(release.providerReleaseId);
-      const tidalUrl = buildTidalReleaseSearchUrl(artist.canonicalName, release.title);
       const releaseDate = new Date(`${release.releaseDate}T00:00:00.000Z`);
-      const type = classifyReleaseType(release.recordType, release.title);
-      const rawSource = await enrichReleaseRawSource(release, maxDiscoveryWindowDays);
+      const existingMapping = release.deezerProviderReleaseId
+        ? await prisma.releaseProviderMapping.findUnique({
+            where: {
+              provider_providerReleaseId: {
+                provider: Provider.DEEZER,
+                providerReleaseId: release.deezerProviderReleaseId,
+              },
+            },
+            include: {
+              release: {
+                include: { mappings: true },
+              },
+            },
+          })
+        : null;
+      const existingByCoreShape = existingMapping
+        ? null
+        : await prisma.release.findFirst({
+            where: {
+              normalizedTitle: release.normalizedTitle,
+              releaseDate,
+              artists: {
+                some: {
+                  artistId,
+                },
+              },
+            },
+            include: { mappings: true },
+          });
+      const existingRelease = existingMapping?.release ?? existingByCoreShape;
 
-      if (existing) {
+      if (existingRelease) {
         await prisma.release.update({
-          where: { id: existing.release.id },
+          where: { id: existingRelease.id },
           data: {
             title: release.title,
-            normalizedTitle: normalizeName(release.title),
+            normalizedTitle: release.normalizedTitle,
             releaseDate,
-            type,
+            type: release.type,
             coverUrl: release.coverUrl,
             deezerUrl: release.deezerUrl,
-            tidalUrl,
-            rawSource,
+            tidalUrl: release.tidalUrl,
+            confidence: release.confidence,
+            rawSource: release.rawSource,
             lastSeenAt: new Date(),
           },
         });
@@ -636,23 +855,60 @@ export async function syncArtist(artistId: string, userId?: string) {
         await prisma.releaseArtist.upsert({
           where: {
             releaseId_artistId: {
-              releaseId: existing.release.id,
+              releaseId: existingRelease.id,
               artistId,
             },
           },
           update: {},
           create: {
-            releaseId: existing.release.id,
+            releaseId: existingRelease.id,
             artistId,
           },
         });
 
-        // Enrich platform links if we only have the Deezer mapping so far.
-        const hasNonDeezerReleaseMappings = existing.release.mappings.some(
-          (m) => m.provider !== Provider.DEEZER,
+        if (release.deezerProviderReleaseId) {
+          await prisma.releaseProviderMapping.upsert({
+            where: {
+              provider_providerReleaseId: {
+                provider: Provider.DEEZER,
+                providerReleaseId: release.deezerProviderReleaseId,
+              },
+            },
+            update: {
+              releaseId: existingRelease.id,
+              url: release.deezerUrl,
+              rawJson: release.deezerRaw ?? undefined,
+            },
+            create: {
+              releaseId: existingRelease.id,
+              provider: Provider.DEEZER,
+              providerReleaseId: release.deezerProviderReleaseId,
+              url: release.deezerUrl,
+              rawJson: release.deezerRaw ?? undefined,
+            },
+          });
+        }
+
+        const hasExactReleaseMappings = existingRelease.mappings.some(
+          (mapping) => mapping.provider !== Provider.DEEZER,
         );
-        if (!hasNonDeezerReleaseMappings) {
-          await enrichReleasePlatformMappings(existing.release.id, release.providerReleaseId);
+        if (!hasExactReleaseMappings) {
+          await enrichReleasePlatformMappings(existingRelease.id, {
+            deezerAlbumId: release.deezerProviderReleaseId,
+            releaseGroupMbid: release.releaseGroupMbid,
+          });
+        }
+
+        if (releaseDate >= today) {
+          await createReleaseDayNotifications(
+            artist.followers.map((follow) => ({
+              userId: follow.userId,
+              timezone: timezoneByUserId.get(follow.userId) ?? getAppDefaultTimeZone(),
+            })),
+            existingRelease.id,
+            releaseDate,
+            artistId,
+          );
         }
 
         continue;
@@ -661,21 +917,24 @@ export async function syncArtist(artistId: string, userId?: string) {
       const created = await prisma.release.create({
         data: {
           title: release.title,
-          normalizedTitle: normalizeName(release.title),
+          normalizedTitle: release.normalizedTitle,
           releaseDate,
-          type,
+          type: release.type,
           coverUrl: release.coverUrl,
           deezerUrl: release.deezerUrl,
-          tidalUrl,
-          rawSource,
-          mappings: {
-            create: {
-              provider: Provider.DEEZER,
-              providerReleaseId: release.providerReleaseId,
-              url: release.deezerUrl,
-              rawJson: release.raw,
-            },
-          },
+          tidalUrl: release.tidalUrl,
+          confidence: release.confidence,
+          rawSource: release.rawSource,
+          mappings: release.deezerProviderReleaseId
+            ? {
+                create: {
+                  provider: Provider.DEEZER,
+                  providerReleaseId: release.deezerProviderReleaseId,
+                  url: release.deezerUrl,
+                  rawJson: release.deezerRaw ?? undefined,
+                },
+              }
+            : undefined,
           artists: {
             create: {
               artistId,
@@ -684,12 +943,17 @@ export async function syncArtist(artistId: string, userId?: string) {
         },
       });
 
-      await enrichReleasePlatformMappings(created.id, release.providerReleaseId);
+      await enrichReleasePlatformMappings(created.id, {
+        deezerAlbumId: release.deezerProviderReleaseId,
+        releaseGroupMbid: release.releaseGroupMbid,
+      });
 
       if (artist.followers.length > 0) {
         const eligibleFollowers = artist.followers.filter((follow) => {
           const windowDays = discoveryWindowByUserId.get(follow.userId) ?? 30;
-          return releaseDate >= subDays(new Date(), windowDays);
+          const followerTimeZone = timezoneByUserId.get(follow.userId) ?? getAppDefaultTimeZone();
+          const discoveryCutoff = getDateOffsetUtcDateForTimeZone(followerTimeZone, -windowDays);
+          return releaseDate >= discoveryCutoff;
         });
 
         if (eligibleFollowers.length === 0) {
@@ -706,18 +970,22 @@ export async function syncArtist(artistId: string, userId?: string) {
           skipDuplicates: true,
         });
 
-        await prisma.notificationEvent.createMany({
-          data: eligibleFollowers.map((follow) => ({
+        await createReleaseDiscoveredNotifications(eligibleFollowers, created.id, artistId, {
+          artistId,
+          provider: release.deezerProviderReleaseId ? "deezer" : "musicbrainz",
+        } satisfies Prisma.InputJsonValue);
+      }
+
+      if (releaseDate >= today) {
+        await createReleaseDayNotifications(
+          artist.followers.map((follow) => ({
             userId: follow.userId,
-            releaseId: created.id,
-            kind: "release_discovered",
-            payload: {
-              artistId,
-              provider: "deezer",
-            },
+              timezone: timezoneByUserId.get(follow.userId) ?? getAppDefaultTimeZone(),
           })),
-          skipDuplicates: true,
-        });
+          created.id,
+          releaseDate,
+          artistId,
+        );
       }
     }
 
@@ -730,7 +998,7 @@ export async function syncArtist(artistId: string, userId?: string) {
 
     await updateSyncJobLog(job, {
       status: JobStatus.SUCCEEDED,
-      message: `Synced ${remoteReleases.length} releases`,
+      message: `Synced ${remoteReleases.length} releases from credential-free core sources`,
     });
   } catch (error) {
     await updateSyncJobLog(job, {

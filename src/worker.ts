@@ -2,7 +2,12 @@ import { JobStatus } from "@prisma/client";
 import { QueueEvents, Worker } from "bullmq";
 
 import { env } from "@/lib/env";
-import { ensureRecurringSync, getQueueConnection } from "@/lib/queue";
+import { drainNotificationQueue } from "@/lib/notifications";
+import {
+  ensureRecurringNotificationDrain,
+  ensureRecurringSync,
+  getQueueConnection,
+} from "@/lib/queue";
 import { DeezerRateLimitError } from "@/lib/providers/deezer";
 import { isBackgroundSchemaReady } from "@/lib/schema-ready";
 import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
@@ -11,6 +16,7 @@ import { syncAllArtists, syncArtist } from "@/lib/sync";
 async function main() {
   if (await isBackgroundSchemaReady()) {
     await ensureRecurringSync();
+    await ensureRecurringNotificationDrain();
   }
 
   const queueEvents = new QueueEvents("artist-sync", {
@@ -64,6 +70,24 @@ async function main() {
     },
   );
 
+  const notificationWorker = new Worker(
+    "notifications",
+    async (job) => {
+      if (!(await isBackgroundSchemaReady())) {
+        console.warn(`Skipping job ${job.id} (${job.name}) until Prisma schema is applied`);
+        return;
+      }
+
+      if (job.name === "drain-notifications") {
+        await drainNotificationQueue();
+      }
+    },
+    {
+      connection: getQueueConnection(),
+      concurrency: 1,
+    },
+  );
+
   worker.on("completed", (job) => {
     console.log(`Completed job ${job.id} (${job.name})`);
   });
@@ -76,6 +100,14 @@ async function main() {
       return;
     }
 
+    console.error(`Failed job ${job?.id} (${job?.name}):`, error);
+  });
+
+  notificationWorker.on("completed", (job) => {
+    console.log(`Completed job ${job.id} (${job.name})`);
+  });
+
+  notificationWorker.on("failed", (job, error) => {
     console.error(`Failed job ${job?.id} (${job?.name}):`, error);
   });
 }
