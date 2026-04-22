@@ -323,6 +323,27 @@ export async function fetchArtistReleaseGroupsByMbid(
 }
 
 /**
+ * Fetch all known name aliases for an artist given their MusicBrainz ID.
+ * Returns the raw alias strings (caller is responsible for normalization).
+ */
+export async function fetchArtistAliasesByMbid(mbid: string): Promise<string[]> {
+  try {
+    const data = (await mbFetch(
+      `${MB_API}/artist/${mbid}?inc=aliases&fmt=json`,
+    )) as { name?: string; aliases?: { name: string }[] };
+
+    const names = new Set<string>();
+    if (data.name) names.add(data.name);
+    for (const alias of data.aliases ?? []) {
+      if (alias.name) names.add(alias.name);
+    }
+    return [...names];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Fetch streaming platform mappings for an artist given their MusicBrainz ID.
  */
 export async function fetchMbPlatformMappingsByMbid(mbid: string): Promise<MbPlatformMapping[]> {

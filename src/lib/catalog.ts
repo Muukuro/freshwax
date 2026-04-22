@@ -18,6 +18,7 @@ type MusicBrainzArtistResponse = {
 
 export type CatalogArtistSearchResult = {
   catalogArtistId: string;
+  musicbrainzArtistId: string | null;
   name: string;
   description: string | null;
   imageUrl: string | null;
@@ -66,6 +67,7 @@ async function searchMusicBrainzArtists(query: string) {
     )
     .map((artist) => ({
       catalogArtistId: artist.id ?? `name:${normalizeName(artist.name)}`,
+      musicbrainzArtistId: artist.id ?? null,
       name: artist.name,
       description: artist.disambiguation ?? null,
       score: typeof artist.score === "number" ? artist.score : null,
@@ -100,6 +102,7 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
 
     return {
       catalogArtistId: artist.catalogArtistId,
+      musicbrainzArtistId: artist.musicbrainzArtistId,
       name: artist.name,
       description: artist.description,
       imageUrl: deezerMatch?.imageUrl ?? null,
@@ -134,6 +137,7 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
 
     return {
       catalogArtistId: `name:${normalizeName(artist.name)}`,
+      musicbrainzArtistId: null,
       name: artist.name,
       description: "Resolved from Deezer search",
       imageUrl: artist.imageUrl,

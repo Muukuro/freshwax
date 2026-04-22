@@ -34,7 +34,7 @@ export function AppShell({
             <div>
               <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
 
-              <nav className="mt-8 space-y-2">
+              <nav className="mt-8 flex flex-col gap-2">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;

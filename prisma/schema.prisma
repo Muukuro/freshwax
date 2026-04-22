@@ -200,7 +200,6 @@ model UserPlatformPreference {
   userId           String
   provider         Provider
   favoriteRank     Int?
-  allowImport      Boolean  @default(false)
   showArtistLinks  Boolean  @default(true)
   showReleaseLinks Boolean  @default(true)
   isFavorite       Boolean  @default(false)
@@ -213,18 +212,20 @@ model UserPlatformPreference {
 }
 
 model Artist {
-  id             String                @id @default(cuid())
-  canonicalName  String
-  normalizedName String
-  imageUrl       String?
-  deezerFans     Int?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  mappings       ArtistProviderMapping[]
-  followers      UserFollow[]
-  releaseArtists ReleaseArtist[]
-  syncJobs       SyncJob[]
-  discoveries    DiscoveryEvent[]
+  id                String                @id @default(cuid())
+  musicbrainzArtistId String?             @unique
+  canonicalName     String
+  normalizedName    String
+  normalizedAliases String[]
+  imageUrl          String?
+  deezerFans        Int?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  mappings          ArtistProviderMapping[]
+  followers         UserFollow[]
+  releaseArtists    ReleaseArtist[]
+  syncJobs          SyncJob[]
+  discoveries       DiscoveryEvent[]
 
   @@index([normalizedName])
 }

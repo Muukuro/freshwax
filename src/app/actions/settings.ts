@@ -36,7 +36,7 @@ function parseLastfmImportMinPlaycount(value: FormDataEntryValue | null) {
 
 async function savePlatformPreferences(userId: string, formData: FormData) {
   const submittedProviders = STREAMING_PROVIDERS.filter((provider) =>
-    ["favorite", "allowImport", "showArtistLinks", "showReleaseLinks", "favoriteRank"].some((field) =>
+    ["favorite", "showArtistLinks", "showReleaseLinks", "favoriteRank"].some((field) =>
       formData.has(`${field}:${provider}`),
     ),
   );
@@ -60,9 +60,6 @@ async function savePlatformPreferences(userId: string, formData: FormData) {
     const index = STREAMING_PROVIDERS.indexOf(provider);
     const defaults = getDefaultProviderPreference(provider);
     const existing = existingByProvider.get(provider);
-    const allowImport = formData.has(`allowImport:${provider}`)
-      ? isChecked(`allowImport:${provider}`)
-      : existing?.allowImport ?? defaults.allowImport;
     const showArtistLinks = formData.has(`showArtistLinks:${provider}`)
       ? isChecked(`showArtistLinks:${provider}`)
       : existing?.showArtistLinks ?? defaults.showArtistLinks;
@@ -83,7 +80,6 @@ async function savePlatformPreferences(userId: string, formData: FormData) {
         },
       },
       update: {
-        allowImport,
         showArtistLinks,
         showReleaseLinks,
         isFavorite,
@@ -92,7 +88,6 @@ async function savePlatformPreferences(userId: string, formData: FormData) {
       create: {
         userId,
         provider,
-        allowImport,
         showArtistLinks,
         showReleaseLinks,
         isFavorite,

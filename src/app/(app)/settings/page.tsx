@@ -220,10 +220,6 @@ export default async function SettingsPage() {
               const disconnectAction = disconnectActionFor(provider);
               const preference = preferenceByProvider.get(provider);
               const providerConfigured = isProviderConfigured(provider);
-              const canImportFromProvider =
-                capability.supportsOptionalImport &&
-                (!capability.requiresOperatorConfiguration || providerConfigured);
-
               return (
                 <article key={provider} className="panel-muted space-y-4 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -256,23 +252,6 @@ export default async function SettingsPage() {
                         <div>
                           <p className="text-sm font-medium text-[var(--text)]">Favorite</p>
                           <p className="text-xs leading-5 text-[var(--muted)]">Pin to the top of link rows</p>
-                        </div>
-                      </label>
-                      <label className={`flex items-start gap-3 ${!canImportFromProvider ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
-                        {canImportFromProvider ? (
-                          <input name={`allowImport:${provider}`} type="hidden" value="off" />
-                        ) : null}
-                        <input
-                          className="mt-0.5 shrink-0"
-                          defaultChecked={preference?.allowImport ?? capability.supportsOptionalImport}
-                          disabled={!canImportFromProvider}
-                          name={`allowImport:${provider}`}
-                          type="checkbox"
-                          value="on"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-[var(--text)]">Import follows</p>
-                          <p className="text-xs leading-5 text-[var(--muted)]">Use this platform as an optional watchlist import source</p>
                         </div>
                       </label>
                       <label className="flex cursor-pointer items-start gap-3">

@@ -17,6 +17,7 @@
 - Core artist search, following, sync, dashboard feeds, and calendar output must work without any configured platform credentials.
 - External import sources are optional and additive: a Last.fm username and/or streaming-platform account can be linked per local user, but they do not replace local sessions.
 - Canonical artist and release records are separated from provider mappings so the app can tolerate imperfect cross-provider linkage.
+- Canonical artist records persist the MusicBrainz artist ID as a dedicated field instead of overloading internal primary keys, which keeps alias-based deduplication stable as provider mappings change.
 - Per-user platform behavior is modeled in `UserPlatformPreference` so import eligibility and visible links can vary by user without mutating canonical artist/release records.
 - Timezone remains per-user state, seeded from an instance default resolved as `DEFAULT_TIMEZONE`, then `TZ`, then `UTC`, so feeds and timestamps respect each account without requiring an admin settings surface.
 - Discovery is modeled per user via `DiscoveryEvent`, but the main feed is framed around recent releases; discovery events now act as attribution for late finds instead of deciding whether a release belongs in the recent feed.

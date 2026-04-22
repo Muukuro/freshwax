@@ -2,6 +2,7 @@ import { JobKind, JobStatus, Provider, type Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import {
+  fetchArtistById,
   fetchArtistReleases,
   fetchTrackArtistNames,
   fetchCurrentUserFollowedArtists,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/providers/deezer";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
 import {
+  fetchArtistAliasesByMbid,
   fetchArtistReleaseGroupsByMbid,
   fetchMbPlatformMappingsByMbid,
   fetchMbReleasePlatformMappings,
@@ -32,7 +34,7 @@ import { getDateOffsetUtcDateForTimeZone, getTodayUtcDateForTimeZone } from "@/l
 import { normalizeName } from "@/lib/utils";
 
 type ArtistSearchResult = {
-  catalogArtistId?: string;
+  musicbrainzArtistId?: string;
   name: string;
   sourceProvider?: Provider;
   providerArtistId?: string | null;
@@ -58,6 +60,16 @@ type CoreReleaseCandidate = {
 };
 
 const CLASSICAL_GENRE_ID = 98;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function getLegacyArtistMbid(artistId: string) {
+  return UUID_PATTERN.test(artistId) ? artistId : null;
+}
+
+function getStoredArtistMbid(artist: { id: string; musicbrainzArtistId: string | null }) {
+  return artist.musicbrainzArtistId ?? getLegacyArtistMbid(artist.id);
+}
 
 function shouldCaptureAttributionHints(
   release: { releaseDate: string; raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput },
@@ -162,7 +174,12 @@ function buildMbLookupUrl(provider: Provider, providerArtistId: string): string 
 async function resolveArtistMbid(
   artistName: string,
   mappings: { provider: Provider; providerArtistId: string; url: string | null }[],
+  storedMbid?: string | null,
 ): Promise<string | null> {
+  if (storedMbid) {
+    return storedMbid;
+  }
+
   // Try each stored mapping — use the stored URL if present, otherwise build the canonical MB URL.
   for (const mapping of mappings) {
     const url = mapping.url ?? buildMbLookupUrl(mapping.provider, mapping.providerArtistId);
@@ -327,20 +344,35 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
         })
       : null;
 
-  const existingArtistByName = mapping
+  const existingArtistByMusicBrainzId = artistResult.musicbrainzArtistId
+    ? await prisma.artist.findFirst({
+        where: {
+          OR: [
+            { musicbrainzArtistId: artistResult.musicbrainzArtistId },
+            { id: artistResult.musicbrainzArtistId },
+          ],
+        },
+      })
+    : null;
+
+  const existingArtistByName = mapping || existingArtistByMusicBrainzId
     ? null
     : await prisma.artist.findFirst({
         where: {
-          normalizedName,
+          OR: [
+            { normalizedName },
+            { normalizedAliases: { has: normalizedName } },
+          ],
         },
       });
 
   const artist =
+    existingArtistByMusicBrainzId ??
     mapping?.artist ??
     existingArtistByName ??
     (await prisma.artist.create({
       data: {
-        id: artistResult.catalogArtistId ?? undefined,
+        musicbrainzArtistId: artistResult.musicbrainzArtistId,
         canonicalName: artistResult.name,
         normalizedName,
         imageUrl: artistResult.imageUrl,
@@ -348,10 +380,12 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
       },
     }));
 
-  if (existingArtistByName) {
+  if (mapping?.artist || existingArtistByMusicBrainzId || existingArtistByName) {
     await prisma.artist.update({
       where: { id: artist.id },
       data: {
+        musicbrainzArtistId:
+          artist.musicbrainzArtistId ?? artistResult.musicbrainzArtistId ?? undefined,
         canonicalName: artistResult.name,
         normalizedName,
         imageUrl: artistResult.imageUrl ?? artist.imageUrl,
@@ -482,7 +516,10 @@ async function resolveArtistSearchResultByName(name: string) {
 
   const existingArtist = await prisma.artist.findFirst({
     where: {
-      normalizedName: normalizedTarget,
+      OR: [
+        { normalizedName: normalizedTarget },
+        { normalizedAliases: { has: normalizedTarget } },
+      ],
       mappings: {
         some: {
           provider: Provider.DEEZER,
@@ -515,20 +552,45 @@ async function resolveArtistSearchResultByName(name: string) {
   const results = await searchArtists(name);
   if (results.length === 0) return null;
 
-  const exactMatch =
-    results.find((result) => normalizeName(result.name) === normalizedTarget) ?? null;
+  // Prefer an exact normalized-name match (catches number-word variants after normalization).
+  const exactMatch = results.find((result) => normalizeName(result.name) === normalizedTarget);
+  if (exactMatch) {
+    return {
+      name: exactMatch.name,
+      sourceProvider: Provider.DEEZER,
+      providerArtistId: exactMatch.providerArtistId,
+      providerUrl: exactMatch.deezerUrl,
+      imageUrl: exactMatch.imageUrl,
+      deezerFans: exactMatch.deezerFans,
+      raw: exactMatch.raw,
+    };
+  }
 
-  return exactMatch
-    ? {
-        name: exactMatch.name,
-        sourceProvider: Provider.DEEZER,
-        providerArtistId: exactMatch.providerArtistId,
-        providerUrl: exactMatch.deezerUrl,
-        imageUrl: exactMatch.imageUrl,
-        deezerFans: exactMatch.deezerFans,
-        raw: exactMatch.raw,
-      }
-    : null;
+  // Fall back: if a top result's Deezer ID is already mapped to any artist in our DB,
+  // that provider mapping is the authoritative link regardless of name divergence.
+  // This handles cases where Deezer's canonical name differs from what we stored
+  // (e.g. we have "Thirty Seconds To Mars" but Deezer stores "30 Seconds To Mars").
+  const resultIds = results.slice(0, 5).map((r) => r.providerArtistId);
+  const knownMapping = await prisma.artistProviderMapping.findFirst({
+    where: {
+      provider: Provider.DEEZER,
+      providerArtistId: { in: resultIds },
+    },
+  });
+  if (knownMapping) {
+    const matched = results.find((r) => r.providerArtistId === knownMapping.providerArtistId)!;
+    return {
+      name: matched.name,
+      sourceProvider: Provider.DEEZER,
+      providerArtistId: matched.providerArtistId,
+      providerUrl: matched.deezerUrl,
+      imageUrl: matched.imageUrl,
+      deezerFans: matched.deezerFans,
+      raw: matched.raw,
+    };
+  }
+
+  return null;
 }
 
 export async function importLastfmTopArtistsForUser(
@@ -681,49 +743,69 @@ export async function syncArtist(artistId: string, userId?: string) {
     // Resolves MBID from whatever provider data is available, then queries
     // Wikidata (structured IDs) and MusicBrainz (YouTube Music, gaps).
     const hasNonDeezerMappings = artist.mappings.some((m) => m.provider !== Provider.DEEZER);
-    if (!hasNonDeezerMappings) {
-      const mbid = await resolveArtistMbid(artist.canonicalName, artist.mappings);
+    const mbid = await resolveArtistMbid(
+      artist.canonicalName,
+      artist.mappings,
+      getStoredArtistMbid(artist),
+    );
 
-      if (mbid) {
-        const wdResult = await fetchWikidataPlatformMappingsByMbid(mbid);
-        const enrichedMappings = [...(wdResult?.mappings ?? [])];
+    if (mbid && artist.musicbrainzArtistId !== mbid) {
+      await prisma.artist.update({
+        where: { id: artistId },
+        data: { musicbrainzArtistId: mbid },
+      });
+      artist.musicbrainzArtistId = mbid;
+    }
 
-        // MusicBrainz supplements Wikidata for providers it doesn't cover (e.g. YouTube Music).
-        const mbMappings = await fetchMbPlatformMappingsByMbid(mbid);
-        const coveredProviders = new Set(enrichedMappings.map((m) => m.provider));
-        for (const mbMapping of mbMappings) {
-          if (!coveredProviders.has(mbMapping.provider) && mbMapping.provider !== Provider.DEEZER) {
-            enrichedMappings.push(mbMapping);
-          }
+    if (mbid && artist.normalizedAliases.length === 0) {
+      const rawAliases = await fetchArtistAliasesByMbid(mbid);
+      const normalizedAliases = [
+        ...new Set(rawAliases.map(normalizeName).filter(Boolean)),
+      ];
+      await prisma.artist.update({
+        where: { id: artistId },
+        data: { normalizedAliases },
+      });
+      artist.normalizedAliases = normalizedAliases;
+    }
+
+    if (!hasNonDeezerMappings && mbid) {
+      const wdResult = await fetchWikidataPlatformMappingsByMbid(mbid);
+      const enrichedMappings = [...(wdResult?.mappings ?? [])];
+
+      // MusicBrainz supplements Wikidata for providers it doesn't cover (e.g. YouTube Music).
+      const mbMappings = await fetchMbPlatformMappingsByMbid(mbid);
+      const coveredProviders = new Set(enrichedMappings.map((m) => m.provider));
+      for (const mbMapping of mbMappings) {
+        if (!coveredProviders.has(mbMapping.provider) && mbMapping.provider !== Provider.DEEZER) {
+          enrichedMappings.push(mbMapping);
         }
+      }
 
-        const existingProviders = new Set(artist.mappings.map((m) => m.provider));
-        for (const mapping of enrichedMappings) {
-          if (existingProviders.has(mapping.provider)) continue;
-          await prisma.artistProviderMapping.upsert({
-            where: {
-              provider_providerArtistId: {
-                provider: mapping.provider,
-                providerArtistId: mapping.providerArtistId,
-              },
-            },
-            update: { artistId, url: mapping.url },
-            create: {
-              artistId,
+      const existingProviders = new Set(artist.mappings.map((m) => m.provider));
+      for (const mapping of enrichedMappings) {
+        if (existingProviders.has(mapping.provider)) continue;
+        await prisma.artistProviderMapping.upsert({
+          where: {
+            provider_providerArtistId: {
               provider: mapping.provider,
               providerArtistId: mapping.providerArtistId,
-              url: mapping.url,
             },
-          });
-        }
+          },
+          update: { artistId, url: mapping.url },
+          create: {
+            artistId,
+            provider: mapping.provider,
+            providerArtistId: mapping.providerArtistId,
+            url: mapping.url,
+          },
+        });
       }
     }
 
     // ── Step 2: Canonical release discovery ─────────────────────────────────
     // Resolve a credential-free release feed via MusicBrainz. Deezer remains
     // optional enrichment and must not gate sync.
-    const mbid = await resolveArtistMbid(artist.canonicalName, artist.mappings);
-
     if (!mbid) {
       await prisma.userFollow.updateMany({
         where: { artistId },
@@ -759,6 +841,29 @@ export async function syncArtist(artistId: string, userId?: string) {
           },
         });
         deezerMapping = upserted;
+
+        if (!artist.imageUrl && deezerMatch.imageUrl) {
+          await prisma.artist.update({
+            where: { id: artistId },
+            data: {
+              imageUrl: deezerMatch.imageUrl,
+              deezerFans: deezerMatch.deezerFans ?? undefined,
+            },
+          });
+          artist.imageUrl = deezerMatch.imageUrl;
+        }
+      }
+    } else if (!artist.imageUrl) {
+      const deezerArtist = await fetchArtistById(deezerMapping.providerArtistId).catch(() => null);
+      if (deezerArtist?.imageUrl) {
+        await prisma.artist.update({
+          where: { id: artistId },
+          data: {
+            imageUrl: deezerArtist.imageUrl,
+            deezerFans: deezerArtist.deezerFans ?? undefined,
+          },
+        });
+        artist.imageUrl = deezerArtist.imageUrl;
       }
     }
     const followerUsers = artist.followers.length

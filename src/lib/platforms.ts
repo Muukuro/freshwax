@@ -18,7 +18,6 @@ export type ProviderCapability = {
   description: string;
   supportsLogin: boolean;
   supportsAccountLink: boolean;
-  supportsOptionalImport: boolean;
   supportsArtistLinks: boolean;
   supportsReleaseLinks: boolean;
   supportsCoreSearch: boolean;
@@ -35,7 +34,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Optional account linking, import, and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsOptionalImport: true,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -50,7 +49,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Optional account linking and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsOptionalImport: true,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -65,7 +64,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Optional login-branded links with search fallbacks; not required for core tracking.",
     supportsLogin: true,
     supportsAccountLink: false,
-    supportsOptionalImport: false,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -80,7 +79,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Optional login-branded links with search fallbacks; not required for core tracking.",
     supportsLogin: true,
     supportsAccountLink: false,
-    supportsOptionalImport: false,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -95,7 +94,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Optional account linking, import, and exact links when operator credentials are configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsOptionalImport: true,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -110,7 +109,7 @@ const providerCapabilities: Record<StreamingProvider, ProviderCapability> = {
     description: "Public catalog enrichment plus optional account linking and import when an existing app is configured.",
     supportsLogin: true,
     supportsAccountLink: true,
-    supportsOptionalImport: true,
+
     supportsArtistLinks: true,
     supportsReleaseLinks: true,
     supportsCoreSearch: false,
@@ -135,7 +134,6 @@ export function getDefaultProviderPreference(provider: StreamingProvider) {
 
   return {
     provider,
-    allowImport: capability.supportsOptionalImport,
     showArtistLinks: capability.supportsArtistLinks,
     showReleaseLinks: capability.supportsReleaseLinks,
     isFavorite: provider === Provider.SPOTIFY || provider === Provider.APPLE_MUSIC,
@@ -174,7 +172,7 @@ export function getProviderAvailabilityNote(provider: StreamingProvider) {
     return "Optional integration not configured";
   }
 
-  if (!capability.supportsOptionalImport && !capability.supportsOptionalEnrichment) {
+  if (!capability.supportsOptionalEnrichment) {
     return "Links only";
   }
 

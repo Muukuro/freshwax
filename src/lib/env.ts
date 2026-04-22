@@ -14,7 +14,7 @@ const optionalEnvString = z.preprocess((value) => {
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
-  APP_URL: z.string().url().default("http://localhost:3000"),
+  APP_URL: z.string().url().default("http://127.0.0.1:3000"),
   DEEZER_APP_ID: optionalEnvString,
   DEEZER_APP_SECRET: optionalEnvString,
   SPOTIFY_CLIENT_ID: optionalEnvString,
@@ -51,9 +51,9 @@ const envSchema = z.object({
 export const env = envSchema.parse({
   DATABASE_URL:
     process.env.DATABASE_URL ??
-    "postgresql://postgres:postgres@localhost:5432/new_release_tracker?schema=public",
+    "postgresql://postgres:postgres@localhost:5432/freshwax?schema=public",
   REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
-  APP_URL: process.env.APP_URL ?? "http://localhost:3000",
+  APP_URL: process.env.APP_URL ?? "http://127.0.0.1:3000",
   DEEZER_APP_ID: process.env.DEEZER_APP_ID,
   DEEZER_APP_SECRET: process.env.DEEZER_APP_SECRET,
   SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,

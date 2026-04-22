@@ -164,7 +164,11 @@ export default async function ArtistsPage({
                     </span>
                   ) : (
                     <form action={followArtistAction}>
-                      <input name="catalogArtistId" type="hidden" value={artist.catalogArtistId} />
+                      <input
+                        name="musicbrainzArtistId"
+                        type="hidden"
+                        value={artist.musicbrainzArtistId ?? ""}
+                      />
                       <input name="artistName" type="hidden" value={artist.name} />
                       <input
                         name="providerArtistId"

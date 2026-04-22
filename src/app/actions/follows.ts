@@ -20,7 +20,7 @@ import { prisma } from "@/lib/db";
 
 export async function followArtistAction(formData: FormData) {
   const user = await requireUser();
-  const catalogArtistId = String(formData.get("catalogArtistId") ?? "").trim();
+  const musicbrainzArtistId = String(formData.get("musicbrainzArtistId") ?? "").trim();
   const artistName = String(formData.get("artistName") ?? "").trim();
   const providerArtistId = String(formData.get("providerArtistId") ?? "").trim();
   const providerUrl = String(formData.get("providerUrl") ?? "").trim();
@@ -34,7 +34,7 @@ export async function followArtistAction(formData: FormData) {
   }
 
   const artist = await followArtistForUser(user.id, {
-    catalogArtistId,
+    musicbrainzArtistId: musicbrainzArtistId || undefined,
     name: artistName,
     sourceProvider: sourceProvider as Provider | undefined,
     providerArtistId: providerArtistId || null,

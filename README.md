@@ -33,7 +33,7 @@ Freshwax is a self-hosted music release tracker with platform-aware preferences,
 docker compose up --build
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000).
+3. Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
 4. Create an account or run the seed locally for a demo user:
 
 ```bash
@@ -77,7 +77,7 @@ npm run dev:worker
 - Core tracking works without any platform credentials. The provider variables below only enable optional login, import, and enrichment paths.
 - `DATABASE_URL`: PostgreSQL connection string.
 - `REDIS_URL`: Redis connection string for BullMQ. For host-local development against the Compose Redis service, use `redis://localhost:6380`. Compose services override this internally to `redis://redis:6379`.
-- `APP_URL`: Base URL used in calendar links.
+- `APP_URL`: Base URL used in calendar links and OAuth callback URLs. For local development, prefer `http://127.0.0.1:3000` over `localhost` because some providers, including Spotify, reject `localhost` redirect URIs.
 - `LASTFM_API_KEY`: Last.fm API key for username-based artist imports.
 - `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`: VAPID keys for browser push delivery.
 - `NOTIFICATION_WEBHOOK_URL`: Optional instance-wide release-notification webhook.
@@ -111,6 +111,7 @@ npm run dev:worker
 ## Assumptions and limitations
 
 - MusicBrainz is the canonical identity and credential-free core release-discovery layer.
+- Canonical artist records persist the MusicBrainz artist ID separately from internal primary keys so alias matching and cross-provider deduplication have a stable backbone.
 - Deezer remains optional public enrichment for richer metadata and exact provider mappings when available.
 - Last.fm import is public-read only and resolves artist names into canonical artists first, then attaches provider mappings opportunistically.
 - Deezer account import is optional and requires an existing Deezer app whose callback URL points to `/api/deezer/callback`.

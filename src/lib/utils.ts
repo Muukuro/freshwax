@@ -14,7 +14,7 @@ export function normalizeName(value: string) {
 }
 
 export function absoluteUrl(path: string) {
-  const base = process.env.APP_URL ?? "http://localhost:3000";
+  const base = process.env.APP_URL ?? "http://127.0.0.1:3000";
   return new URL(path, base).toString();
 }
 

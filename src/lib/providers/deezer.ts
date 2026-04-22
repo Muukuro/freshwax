@@ -282,6 +282,12 @@ export async function fetchCurrentDeezerUser(accessToken: string) {
   };
 }
 
+export async function fetchArtistById(providerArtistId: string) {
+  const url = `${DEEZER_API}/artist/${providerArtistId}`;
+  const payload = await deezerFetch<DeezerArtist>(url, { nextRevalidate: 60 * 60 });
+  return mapArtist(payload);
+}
+
 export async function searchArtists(query: string) {
   if (!query.trim()) return [];
 

@@ -140,20 +140,6 @@ export default async function OnboardingPage() {
                     </label>
 
                     <label className="check">
-                      {capability.supportsOptionalImport ? (
-                        <input name={`allowImport:${provider}`} type="hidden" value="off" />
-                      ) : null}
-                      <input
-                        defaultChecked={preference?.allowImport ?? capability.supportsOptionalImport}
-                        disabled={!capability.supportsOptionalImport}
-                        name={`allowImport:${provider}`}
-                        type="checkbox"
-                        value="on"
-                      />
-                      Allow followed-artist import
-                    </label>
-
-                    <label className="check">
                       <input name={`showArtistLinks:${provider}`} type="hidden" value="off" />
                       <input
                         defaultChecked={preference?.showArtistLinks ?? capability.supportsArtistLinks}
