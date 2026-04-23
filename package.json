@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
     "dev:worker": "node --env-file=.env ./node_modules/tsx/dist/cli.mjs watch src/worker.ts",
     "dev:all": "concurrently -k -n app,worker -c blue,yellow \"npm:dev\" \"npm:dev:worker\"",
     "build": "next build",

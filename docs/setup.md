@@ -480,7 +480,7 @@ npm run dev:all
 Use this `.env` pairing locally:
 
 ```text
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/new_release_tracker?schema=public
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/freshwax?schema=public
 REDIS_URL=redis://localhost:6380
 APP_URL=http://127.0.0.1:3000
 ```

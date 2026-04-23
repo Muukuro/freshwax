@@ -3,9 +3,22 @@ import IORedis from "ioredis";
 
 import { env } from "@/lib/env";
 
+const ARTIST_SYNC_CANCEL_PREFIX = "freshwax:artist-sync:cancel:";
+const ARTIST_SYNC_CANCEL_TTL_SECONDS = 60 * 60;
+const IMPORT_CANCEL_PREFIX = "freshwax:import:cancel:";
+const IMPORT_CANCEL_TTL_SECONDS = 60 * 60;
+
 let queueConnection: IORedis | null = null;
 let artistSyncQueue: Queue | null = null;
 let notificationQueue: Queue | null = null;
+
+function getArtistSyncCancellationKey(jobId: string) {
+  return `${ARTIST_SYNC_CANCEL_PREFIX}${jobId}`;
+}
+
+function getImportCancellationKey(userId: string) {
+  return `${IMPORT_CANCEL_PREFIX}${userId}`;
+}
 
 export function getQueueConnection() {
   if (!queueConnection) {
@@ -39,11 +52,13 @@ export function getNotificationQueue() {
 }
 
 export async function enqueueArtistSync(artistId: string) {
+  const jobId = `artist-${artistId}`;
+  await clearArtistSyncCancellation(jobId);
   await getArtistSyncQueue().add(
     "sync-followed-artist",
     { artistId },
     {
-      jobId: `artist-${artistId}`,
+      jobId,
       attempts: env.DEEZER_RATE_LIMIT_RETRIES + 1,
       backoff: {
         type: "exponential",
@@ -109,4 +124,38 @@ export async function ensureRecurringNotificationDrain() {
       },
     },
   );
+}
+
+export async function requestArtistSyncCancellation(jobId: string) {
+  await getQueueConnection().set(
+    getArtistSyncCancellationKey(jobId),
+    "1",
+    "EX",
+    ARTIST_SYNC_CANCEL_TTL_SECONDS,
+  );
+}
+
+export async function clearArtistSyncCancellation(jobId: string) {
+  await getQueueConnection().del(getArtistSyncCancellationKey(jobId));
+}
+
+export async function isArtistSyncCancellationRequested(jobId: string) {
+  return (await getQueueConnection().exists(getArtistSyncCancellationKey(jobId))) === 1;
+}
+
+export async function requestImportCancellation(userId: string) {
+  await getQueueConnection().set(
+    getImportCancellationKey(userId),
+    "1",
+    "EX",
+    IMPORT_CANCEL_TTL_SECONDS,
+  );
+}
+
+export async function clearImportCancellation(userId: string) {
+  await getQueueConnection().del(getImportCancellationKey(userId));
+}
+
+export async function isImportCancellationRequested(userId: string) {
+  return (await getQueueConnection().exists(getImportCancellationKey(userId))) === 1;
 }

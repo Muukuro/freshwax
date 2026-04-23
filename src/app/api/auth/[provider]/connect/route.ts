@@ -7,11 +7,13 @@ import {
   createExternalAuthState,
   getExternalAuthAuthorizeUrl,
   getPkceCookieName,
+  getReturnOriginCookieName,
   isExternalAuthConfigured,
   isExternalAuthImplemented,
   providerFromSlug,
 } from "@/lib/external-auth";
 import { Provider } from "@prisma/client";
+import { getRequestOrigin } from "@/lib/utils";
 
 export async function GET(
   request: Request,
@@ -52,6 +54,14 @@ export async function GET(
       maxAge: 60 * 10,
     });
   }
+
+  cookieStore.set(getReturnOriginCookieName(provider), getRequestOrigin(request), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 10,
+  });
 
   return NextResponse.redirect(
     getExternalAuthAuthorizeUrl(provider, state, {

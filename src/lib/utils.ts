@@ -18,6 +18,18 @@ export function absoluteUrl(path: string) {
   return new URL(path, base).toString();
 }
 
+export function getRequestOrigin(request: Request) {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = request.headers.get("host");
+
+  if (forwardedHost || host) {
+    return `${forwardedProto ?? "http"}://${forwardedHost ?? host}`;
+  }
+
+  return new URL(request.url).origin;
+}
+
 export function releaseTypeLabel(type: string) {
   return type.toLowerCase().replace("_", " ");
 }

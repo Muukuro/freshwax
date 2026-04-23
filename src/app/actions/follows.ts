@@ -6,6 +6,7 @@ import { Provider } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
 import { enqueueArtistSync } from "@/lib/queue";
+import { clearImportCancellation } from "@/lib/queue";
 import {
   followArtistForUser,
   importDeezerFollowedArtistsForUser,
@@ -33,8 +34,12 @@ export async function followArtistAction(formData: FormData) {
     throw new Error("Artist search result could not be resolved");
   }
 
+  if (!musicbrainzArtistId) {
+    throw new Error("Artist search result did not resolve to a canonical MusicBrainz artist");
+  }
+
   const artist = await followArtistForUser(user.id, {
-    musicbrainzArtistId: musicbrainzArtistId || undefined,
+    musicbrainzArtistId,
     name: artistName,
     sourceProvider: sourceProvider as Provider | undefined,
     providerArtistId: providerArtistId || null,
@@ -118,6 +123,8 @@ export async function importDeezerFollowsAction(
     return { ok: false, error: "Your Deezer connection has expired. Reconnect the account and try again." };
   }
 
+  await clearImportCancellation(user.id);
+
   after(async () => {
     await importDeezerFollowedArtistsForUser(user.id, connection.accessToken);
     await prisma.deezerConnection.update({
@@ -152,6 +159,8 @@ export async function importTidalFollowsAction(
     return { ok: false, error: "Your TIDAL connection has expired. Reconnect the account and try again." };
   }
 
+  await clearImportCancellation(user.id);
+
   after(async () => {
     await importTidalFollowedArtistsForUser(user.id, connection.accessToken);
     await prisma.tidalConnection.update({
@@ -185,6 +194,8 @@ export async function importLastfmArtistsAction(
   if (!connection) {
     return { ok: false, error: "Save your Last.fm username before importing artists" };
   }
+
+  await clearImportCancellation(user.id);
 
   after(async () => {
     await importLastfmTopArtistsForUser(

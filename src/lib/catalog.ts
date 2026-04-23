@@ -1,6 +1,7 @@
 import { Provider, type Prisma } from "@prisma/client";
 
 import { searchArtists as searchDeezerArtists } from "@/lib/providers/deezer";
+import { searchArtistMbid } from "@/lib/providers/musicbrainz";
 import { buildArtistPlatformLinks } from "@/lib/platform-links";
 import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
 import { normalizeName } from "@/lib/utils";
@@ -18,7 +19,7 @@ type MusicBrainzArtistResponse = {
 
 export type CatalogArtistSearchResult = {
   catalogArtistId: string;
-  musicbrainzArtistId: string | null;
+  musicbrainzArtistId: string;
   name: string;
   description: string | null;
   imageUrl: string | null;
@@ -62,16 +63,24 @@ async function searchMusicBrainzArtists(query: string) {
   const payload = (await response.json()) as MusicBrainzArtistResponse;
 
   return (payload.artists ?? [])
-    .filter((artist): artist is Required<Pick<MusicBrainzArtist, "name">> & MusicBrainzArtist =>
-      Boolean(artist.name),
+    .filter((artist): artist is Required<Pick<MusicBrainzArtist, "id" | "name">> & MusicBrainzArtist =>
+      Boolean(artist.id && artist.name),
     )
     .map((artist) => ({
-      catalogArtistId: artist.id ?? `name:${normalizeName(artist.name)}`,
-      musicbrainzArtistId: artist.id ?? null,
+      catalogArtistId: artist.id,
+      musicbrainzArtistId: artist.id,
       name: artist.name,
       description: artist.disambiguation ?? null,
       score: typeof artist.score === "number" ? artist.score : null,
     }));
+}
+
+async function resolveDeezerArtistMusicbrainzId(name: string) {
+  try {
+    return await searchArtistMbid(name);
+  } catch {
+    return null;
+  }
 }
 
 export async function searchCatalogArtists(query: string): Promise<CatalogArtistSearchResult[]> {
@@ -125,7 +134,18 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
     return merged;
   }
 
-  return deezerResults.slice(0, 10).map((artist) => {
+  const deezerFallbackResults = await Promise.all(
+    deezerResults.slice(0, 10).map(async (artist) => ({
+      artist,
+      musicbrainzArtistId: await resolveDeezerArtistMusicbrainzId(artist.name),
+    })),
+  );
+
+  return deezerFallbackResults.flatMap(({ artist, musicbrainzArtistId }) => {
+    if (!musicbrainzArtistId) {
+      return [];
+    }
+
     const providerMappings = [
       {
         provider: Provider.DEEZER,
@@ -136,8 +156,8 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
     ];
 
     return {
-      catalogArtistId: `name:${normalizeName(artist.name)}`,
-      musicbrainzArtistId: null,
+      catalogArtistId: musicbrainzArtistId,
+      musicbrainzArtistId,
       name: artist.name,
       description: "Resolved from Deezer search",
       imageUrl: artist.imageUrl,

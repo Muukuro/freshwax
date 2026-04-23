@@ -3,11 +3,7 @@
 import { LocateFixed, Search } from "lucide-react";
 import { useDeferredValue, useId, useState } from "react";
 
-import {
-  getFallbackTimeZones,
-  getSupportedTimeZones,
-  isValidTimeZone,
-} from "@/lib/timezone";
+import { isValidTimeZone } from "@/lib/timezone";
 
 function getBrowserTimeZone() {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -17,16 +13,14 @@ function getBrowserTimeZone() {
 export function TimezoneField({
   defaultValue,
   name,
+  supportedTimeZones,
 }: {
   defaultValue: string;
   name: string;
+  supportedTimeZones: string[];
 }) {
   const [filter, setFilter] = useState("");
   const [selectedTimeZone, setSelectedTimeZone] = useState(defaultValue);
-  const [supportedTimeZones] = useState(() => {
-    const timeZones = getSupportedTimeZones();
-    return timeZones.length > 0 ? timeZones : getFallbackTimeZones();
-  });
   const deferredFilter = useDeferredValue(filter);
   const browserTimeZone = getBrowserTimeZone();
   const searchId = useId();

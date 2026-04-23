@@ -16,6 +16,7 @@ type QueueJob = {
   scheduledFor: string | null;
   startedAt: string | null;
   failedReason: string | null;
+  cancellationRequested: boolean;
 };
 
 type QueueScheduler = {
@@ -151,6 +152,9 @@ export function SyncQueueStatus() {
             <li key={job.id} className="rounded-2xl border border-white/8 bg-black/15 px-3 py-2">
               <p className="font-medium text-[var(--text)]">{job.title}</p>
               <p>{describeJob(job)}</p>
+              {job.cancellationRequested && (
+                <p className="text-amber-300">Cancellation requested</p>
+              )}
               {job.scheduledFor && (
                 <p>Scheduled for {formatAbsoluteTime(job.scheduledFor)}</p>
               )}

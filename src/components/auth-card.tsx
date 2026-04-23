@@ -90,10 +90,10 @@ export function AuthCard({
           <div className="grid gap-3">
             {externalProviders.map((provider) =>
               provider.href ? (
-                <Link key={provider.label} className="ghost-button w-full justify-center" href={provider.href}>
+                <a key={provider.label} className="ghost-button w-full justify-center" href={provider.href}>
                   {provider.icon ?? null}
                   {provider.label}
-                </Link>
+                </a>
               ) : (
                 <div
                   key={provider.label}

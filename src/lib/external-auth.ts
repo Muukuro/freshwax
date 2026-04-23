@@ -53,6 +53,10 @@ function pkceCookieName(provider: Provider) {
   return `freshwax_${getProviderSlug(provider)}_oauth_pkce_verifier`;
 }
 
+function returnOriginCookieName(provider: Provider) {
+  return `freshwax_${getProviderSlug(provider)}_oauth_return_origin`;
+}
+
 function toBase64Url(value: Buffer) {
   return value.toString("base64url");
 }
@@ -67,6 +71,10 @@ export function createPkceChallenge(verifier: string) {
 
 export function getPkceCookieName(provider: Provider) {
   return pkceCookieName(provider);
+}
+
+export function getReturnOriginCookieName(provider: Provider) {
+  return returnOriginCookieName(provider);
 }
 
 type ExternalProfile = {

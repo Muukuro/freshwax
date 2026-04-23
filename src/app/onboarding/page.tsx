@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { CheckCircle2, Link2, Music4, SkipForward } from "lucide-react";
 import { Provider } from "@prisma/client";
 
@@ -10,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { getProviderAvailabilityNote, getProviderCapability, getProviderLabel, STREAMING_PROVIDERS } from "@/lib/platforms";
 import { getCoreModeSummary } from "@/lib/source-strategy";
+import { getFallbackTimeZones, getSupportedTimeZones } from "@/lib/timezone";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
 
 function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provider: Provider) {
@@ -38,6 +38,7 @@ function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provid
 export default async function OnboardingPage() {
   const user = await requireUser();
   const timeZone = getEffectiveTimeZone(user.timezone);
+  const supportedTimeZones = getSupportedTimeZones();
   const preferenceByProvider = new Map(
     user.platformPreferences.map((preference) => [preference.provider, preference]),
   );
@@ -162,10 +163,10 @@ export default async function OnboardingPage() {
                     </label>
 
                     {capability.supportsLogin && isExternalAuthImplemented(provider) && !connectedAs ? (
-                      <Link className="ghost-button" href={`/api/auth/${provider.toLowerCase()}/connect`}>
+                      <a className="ghost-button" href={`/api/auth/${provider.toLowerCase()}/connect`}>
                         <Link2 className="h-4 w-4" />
                         {`Connect ${getProviderLabel(provider)}`}
-                      </Link>
+                      </a>
                     ) : connectedAs ? (
                       <div className="ghost-button pointer-events-none opacity-80">
                         <CheckCircle2 className="h-4 w-4" />
@@ -181,7 +182,11 @@ export default async function OnboardingPage() {
           <section className="panel grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
               <p className="eyebrow">Release defaults</p>
-              <TimezoneField defaultValue={timeZone} name="timezone" />
+              <TimezoneField
+                defaultValue={timeZone}
+                name="timezone"
+                supportedTimeZones={supportedTimeZones.length > 0 ? supportedTimeZones : getFallbackTimeZones()}
+              />
               <label className="check">
                 <input defaultChecked name="includeSingles" type="checkbox" />
                 Include singles

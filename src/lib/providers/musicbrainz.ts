@@ -3,6 +3,8 @@ import { Provider } from "@prisma/client";
 const MB_API = "https://musicbrainz.org/ws/2";
 // MusicBrainz requires a descriptive User-Agent per their API terms.
 const USER_AGENT = "freshwax/1.0 (self-hosted music release tracker)";
+const MB_MAX_RETRIES = 4;
+const MB_MAX_BACKOFF_MS = 30_000;
 
 type MbRelation = {
   "target-type": string;
@@ -44,16 +46,31 @@ export type MbPlatformMapping = {
 };
 
 async function mbFetch(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    cache: "no-store",
-  });
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      cache: "no-store",
+    });
 
-  if (!response.ok) {
-    throw new Error(`MusicBrainz request failed: ${response.status} ${url}`);
+    if (response.ok) {
+      return response.json();
+    }
+
+    const shouldRetry =
+      response.status === 429 ||
+      response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504;
+
+    if (!shouldRetry || attempt >= MB_MAX_RETRIES) {
+      throw new Error(`MusicBrainz request failed: ${response.status} ${url}`);
+    }
+
+    const retryAfter = Number(response.headers.get("Retry-After") ?? 0);
+    const backoffMs =
+      retryAfter > 0 ? retryAfter * 1000 : Math.min(1000 * 2 ** attempt, MB_MAX_BACKOFF_MS);
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
   }
-
-  return response.json();
 }
 
 /**

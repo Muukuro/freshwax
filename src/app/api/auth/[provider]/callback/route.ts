@@ -6,6 +6,7 @@ import {
   completeExternalAuth,
   getProviderSlug,
   getPkceCookieName,
+  getReturnOriginCookieName,
   providerFromSlug,
 } from "@/lib/external-auth";
 import {
@@ -16,9 +17,22 @@ import {
   getPostAuthRedirect,
 } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getRequestOrigin } from "@/lib/utils";
 
-function redirectWithError(request: Request, status: string) {
-  return NextResponse.redirect(new URL(`/login?error=${status}`, request.url));
+function buildRedirectUrl(request: Request, path: string, returnOrigin?: string | null) {
+  if (returnOrigin) {
+    try {
+      return new URL(path, returnOrigin);
+    } catch {
+      // Fall back to the external request origin if the stored origin is malformed.
+    }
+  }
+
+  return new URL(path, getRequestOrigin(request));
+}
+
+function redirectWithError(request: Request, status: string, returnOrigin?: string | null) {
+  return NextResponse.redirect(buildRedirectUrl(request, `/login?error=${status}`, returnOrigin));
 }
 
 export async function GET(
@@ -39,19 +53,21 @@ export async function GET(
   const cookieStore = await cookies();
   const stateCookie = cookieStore.get(`freshwax_${getProviderSlug(provider)}_oauth_state`)?.value;
   const pkceVerifier = cookieStore.get(getPkceCookieName(provider))?.value;
+  const returnOrigin = cookieStore.get(getReturnOriginCookieName(provider))?.value;
   cookieStore.delete(`freshwax_${getProviderSlug(provider)}_oauth_state`);
   cookieStore.delete(getPkceCookieName(provider));
+  cookieStore.delete(getReturnOriginCookieName(provider));
 
   if (error) {
-    return redirectWithError(request, "provider-denied");
+    return redirectWithError(request, "provider-denied", returnOrigin);
   }
 
   if (!code) {
-    return redirectWithError(request, "provider-missing-code");
+    return redirectWithError(request, "provider-missing-code", returnOrigin);
   }
 
   if (!stateCookie || !returnedState || stateCookie !== returnedState) {
-    return redirectWithError(request, "provider-state");
+    return redirectWithError(request, "provider-state", returnOrigin);
   }
 
   try {
@@ -71,7 +87,7 @@ export async function GET(
       });
 
       if (existingIdentity && existingIdentity.userId !== currentUser.id) {
-        return redirectWithError(request, "provider-link-required");
+        return redirectWithError(request, "provider-link-required", returnOrigin);
       }
 
       await prisma.externalIdentity.upsert({
@@ -158,7 +174,7 @@ export async function GET(
         });
       }
 
-      return NextResponse.redirect(new URL("/settings", request.url));
+      return NextResponse.redirect(buildRedirectUrl(request, "/settings", returnOrigin));
     }
 
     const user = await createExternalIdentityUser({
@@ -232,7 +248,9 @@ export async function GET(
     }
 
     await createSession(user.id);
-    return NextResponse.redirect(new URL(await getPostAuthRedirect(user.id), request.url));
+    return NextResponse.redirect(
+      buildRedirectUrl(request, await getPostAuthRedirect(user.id), returnOrigin),
+    );
   } catch (caughtError) {
     const message = caughtError instanceof Error ? caughtError.message : "";
     console.error(`External auth callback failed for provider ${provider}:`, caughtError);
@@ -240,6 +258,6 @@ export async function GET(
       ? "provider-link-required"
       : "provider-error";
 
-    return redirectWithError(request, status);
+    return redirectWithError(request, status, returnOrigin);
   }
 }

@@ -8,6 +8,7 @@ import { TimezoneField } from "@/components/timezone-field";
 
 import { importDeezerFollowsAction, importLastfmArtistsAction, importTidalFollowsAction } from "@/app/actions/follows";
 import { ImportForm } from "@/components/import-form";
+import { SyncAdminPanel } from "@/components/sync-admin-panel";
 import { SyncQueueStatus } from "@/components/sync-queue-status";
 import {
   disconnectAppleMusicAction,
@@ -35,7 +36,10 @@ import {
 } from "@/lib/platforms";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
 import { getCoreModeSummary } from "@/lib/source-strategy";
+import { getUserSyncAdminLogs } from "@/lib/sync-admin";
+import { getUserSyncQueueStatus } from "@/lib/sync-queue-status";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import { getFallbackTimeZones, getSupportedTimeZones } from "@/lib/timezone";
 
 function connectionSummary(user: Awaited<ReturnType<typeof requireUser>>, provider: Provider) {
   switch (provider) {
@@ -78,11 +82,16 @@ function disconnectActionFor(provider: Provider) {
 export default async function SettingsPage() {
   const user = await requireUser();
   const timeZone = getEffectiveTimeZone(user.timezone);
+  const supportedTimeZones = getSupportedTimeZones();
   const calendarUrl = absoluteUrl(`/calendar/${user.calendarToken?.token ?? ""}.ics`);
   const lastfmConfigured = isLastfmConfigured();
   const preferenceByProvider = new Map(
     user.platformPreferences.map((preference) => [preference.provider, preference]),
   );
+  const [syncAdminLogs, queueStatus] = await Promise.all([
+    getUserSyncAdminLogs(user.id),
+    getUserSyncQueueStatus(user.id, { jobLimit: 20 }),
+  ]);
 
   return (
     <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
@@ -92,7 +101,11 @@ export default async function SettingsPage() {
 
         <form action={updateSettingsAction} className="mt-8 grid gap-6">
           <div>
-            <TimezoneField defaultValue={timeZone} name="timezone" />
+            <TimezoneField
+              defaultValue={timeZone}
+              name="timezone"
+              supportedTimeZones={supportedTimeZones.length > 0 ? supportedTimeZones : getFallbackTimeZones()}
+            />
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             <label className="field h-full justify-between">
@@ -198,6 +211,8 @@ export default async function SettingsPage() {
             </Link>
           </div>
         </article>
+
+        <SyncAdminPanel logs={syncAdminLogs} queueStatus={queueStatus} timeZone={timeZone} />
 
         <article className="panel">
           <div className="flex items-start justify-between gap-4">

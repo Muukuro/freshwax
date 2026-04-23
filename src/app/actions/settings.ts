@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { Provider } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
+import { cancelAllUserSyncQueueJobs, cancelUserSyncQueueJob } from "@/lib/sync-admin";
 import { prisma } from "@/lib/db";
+import { requestImportCancellation } from "@/lib/queue";
 import {
   STREAMING_PROVIDERS,
   getDefaultProviderPreference,
@@ -310,4 +312,26 @@ export async function disconnectLastfmAction() {
 
   revalidatePath("/settings");
   revalidatePath("/artists");
+}
+
+export async function cancelSyncJobAction(formData: FormData) {
+  const user = await requireUser();
+  const jobId = String(formData.get("jobId") ?? "").trim();
+
+  if (!jobId) {
+    throw new Error("Missing sync job id");
+  }
+
+  await cancelUserSyncQueueJob(user.id, jobId);
+
+  revalidatePath("/settings");
+}
+
+export async function cancelAllSyncJobsAction() {
+  const user = await requireUser();
+
+  await requestImportCancellation(user.id);
+  await cancelAllUserSyncQueueJobs(user.id);
+
+  revalidatePath("/settings");
 }

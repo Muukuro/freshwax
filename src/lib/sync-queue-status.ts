@@ -1,7 +1,7 @@
 import type { Job, JobSchedulerJson } from "bullmq";
 
 import { env } from "@/lib/env";
-import { getArtistSyncQueue } from "@/lib/queue";
+import { getArtistSyncQueue, isArtistSyncCancellationRequested } from "@/lib/queue";
 import { prisma } from "@/lib/db";
 
 type QueueJobState = "active" | "waiting" | "delayed" | "failed";
@@ -20,6 +20,7 @@ export type SyncQueueJobSummary = {
   scheduledFor: string | null;
   startedAt: string | null;
   failedReason: string | null;
+  cancellationRequested: boolean;
 };
 
 export type SyncQueueSchedulerSummary = {
@@ -79,18 +80,25 @@ function buildJobTitle(job: Job, followedArtistNames: Map<string, string>) {
   return job.name;
 }
 
-function toJobSummary(jobWithState: QueueJobWithState, followedArtistNames: Map<string, string>) {
+async function toJobSummary(
+  jobWithState: QueueJobWithState,
+  followedArtistNames: Map<string, string>,
+) {
   const { job, state } = jobWithState;
   const scheduledFor =
     state === "delayed" && job.delay > 0 ? new Date(job.timestamp + job.delay).toISOString() : null;
+  const jobId = job.id ?? `${job.name}:${job.timestamp}`;
 
   return {
-    id: job.id ?? `${job.name}:${job.timestamp}`,
+    id: jobId,
     title: buildJobTitle(job, followedArtistNames),
     state,
     scheduledFor,
     startedAt: job.processedOn ? new Date(job.processedOn).toISOString() : null,
     failedReason: state === "failed" ? job.failedReason || "Sync failed" : null,
+    cancellationRequested: job.id
+      ? await isArtistSyncCancellationRequested(String(job.id))
+      : false,
   } satisfies SyncQueueJobSummary;
 }
 
@@ -105,7 +113,10 @@ function buildSchedulerSummary(scheduler: JobSchedulerJson | undefined): SyncQue
   };
 }
 
-export async function getUserSyncQueueStatus(userId: string): Promise<SyncQueueStatusSummary> {
+export async function getUserSyncQueueStatus(
+  userId: string,
+  options?: { jobLimit?: number },
+): Promise<SyncQueueStatusSummary> {
   const queue = getArtistSyncQueue();
 
   const [follows, activeJobs, waitingJobs, delayedJobs, failedJobs, schedulers] = await Promise.all([
@@ -157,8 +168,11 @@ export async function getUserSyncQueueStatus(userId: string): Promise<SyncQueueS
       const bTime = b.state === "delayed" ? b.job.timestamp + b.job.delay : b.job.timestamp;
       return aTime - bTime;
     })
-    .slice(0, DISPLAY_JOB_LIMIT)
-    .map((job) => toJobSummary(job, followedArtistNames));
+    .slice(0, options?.jobLimit ?? DISPLAY_JOB_LIMIT);
+
+  const jobSummaries = await Promise.all(
+    jobs.map((job) => toJobSummary(job, followedArtistNames)),
+  );
 
   const scheduler = buildSchedulerSummary(
     schedulers.find(
@@ -169,7 +183,7 @@ export async function getUserSyncQueueStatus(userId: string): Promise<SyncQueueS
 
   return {
     counts,
-    jobs,
+    jobs: jobSummaries,
     scheduler,
   };
 }

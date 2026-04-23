@@ -4,6 +4,7 @@ import { QueueEvents, Worker } from "bullmq";
 import { env } from "@/lib/env";
 import { drainNotificationQueue } from "@/lib/notifications";
 import {
+  clearArtistSyncCancellation,
   ensureRecurringNotificationDrain,
   ensureRecurringSync,
   getQueueConnection,
@@ -46,7 +47,7 @@ async function main() {
         });
 
         try {
-          await syncAllArtists();
+          await syncAllArtists(String(job.id ?? ""));
           await updateSyncJobLog(syncJob, {
             status: JobStatus.SUCCEEDED,
             message: "Global sync complete",
@@ -61,7 +62,7 @@ async function main() {
       }
 
       if (job.name === "sync-followed-artist") {
-        await syncArtist(job.data.artistId);
+        await syncArtist(job.data.artistId, undefined, String(job.id ?? ""));
       }
     },
     {
@@ -89,10 +90,16 @@ async function main() {
   );
 
   worker.on("completed", (job) => {
+    if (job?.id) {
+      void clearArtistSyncCancellation(String(job.id));
+    }
     console.log(`Completed job ${job.id} (${job.name})`);
   });
 
   worker.on("failed", (job, error) => {
+    if (job?.id) {
+      void clearArtistSyncCancellation(String(job.id));
+    }
     if (error instanceof DeezerRateLimitError) {
       console.warn(
         `Rate limited while processing job ${job?.id} (${job?.name}); retrying after cooldown`,

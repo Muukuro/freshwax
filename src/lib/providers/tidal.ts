@@ -14,8 +14,8 @@ type TidalCollectionData = {
   relationships?: {
     items?: {
       links?: {
-        self?: string;
-        next?: string;
+        self?: string | { href?: string };
+        next?: string | { href?: string };
       };
     };
   };
@@ -30,7 +30,7 @@ type TidalCollectionResponse = {
 type TidalRelationshipResponse = {
   data?: { id: string; type: string }[];
   links?: {
-    next?: string | null;
+    next?: string | { href?: string } | null;
   };
 };
 
@@ -66,6 +66,12 @@ function extractArtist(resource: TidalArtistResource) {
     providerArtistId: resource.id,
     tidalUrl: sharingLink?.href ?? null,
   };
+}
+
+function resolveLinkHref(link: string | { href?: string } | null | undefined) {
+  if (!link) return null;
+  if (typeof link === "string") return link;
+  return typeof link.href === "string" ? link.href : null;
 }
 
 async function tidalFetch(url: string, accessToken: string, attempt = 0): Promise<Response> {
@@ -153,37 +159,20 @@ export async function fetchTidalFollowedArtists(accessToken: string) {
       ? (collection.data as TidalCollectionData)
       : null;
 
-  const relationshipNextUrl = collectionData?.relationships?.items?.links?.next ?? null;
-  const collectionId = collectionData?.id ?? null;
+  const relationshipNextUrl = resolveLinkHref(collectionData?.relationships?.items?.links?.next);
 
-  if (!relationshipNextUrl || !collectionId) {
+  if (!relationshipNextUrl) {
     return artists;
   }
 
   // Pages 2+: walk /relationships/items for IDs, then batch-fetch artist details
-  let nextCursor: string | null = null;
-  try {
-    const parsed = new URL(
-      relationshipNextUrl.startsWith("http")
-        ? relationshipNextUrl
-        : `${TIDAL_API}/v2${relationshipNextUrl}`,
-    );
-    nextCursor = parsed.searchParams.get("page[cursor]");
-  } catch {
-    return artists;
-  }
-
+  let nextUrl: string | null = relationshipNextUrl.startsWith("http")
+    ? relationshipNextUrl
+    : `${TIDAL_API}/v2${relationshipNextUrl}`;
   let pages = 0;
 
-  while (nextCursor && pages < 100) {
-    const relUrl = new URL(
-      `${TIDAL_API}/v2/userCollectionArtists/${collectionId}/relationships/items`,
-    );
-    relUrl.searchParams.set("countryCode", countryCode);
-    relUrl.searchParams.set("locale", "en-US");
-    relUrl.searchParams.set("page[cursor]", nextCursor);
-
-    const relRes = await tidalFetch(relUrl.toString(), accessToken);
+  while (nextUrl && pages < 100) {
+    const relRes = await tidalFetch(nextUrl, accessToken);
 
     if (!relRes.ok) {
       console.error(`[TIDAL] relationships page ${pages + 1} failed with ${relRes.status}`);
@@ -199,19 +188,12 @@ export async function fetchTidalFollowedArtists(accessToken: string) {
       if (artist) artists.push(artist);
     }
 
-    const rawNext = relPayload.links?.next ?? null;
-    if (rawNext) {
-      try {
-        const parsed = new URL(
-          rawNext.startsWith("http") ? rawNext : `${TIDAL_API}/v2${rawNext}`,
-        );
-        nextCursor = parsed.searchParams.get("page[cursor]");
-      } catch {
-        nextCursor = null;
-      }
-    } else {
-      nextCursor = null;
-    }
+    const rawNext = resolveLinkHref(relPayload.links?.next);
+    nextUrl = rawNext
+      ? rawNext.startsWith("http")
+        ? rawNext
+        : `${TIDAL_API}/v2${rawNext}`
+      : null;
 
     pages += 1;
   }
