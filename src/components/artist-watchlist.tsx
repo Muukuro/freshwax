@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
-import { formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";
+import { formatInteger, formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";
 import { normalizeName } from "@/lib/utils";
 
 type ArtistWatchlistEntry = {
@@ -65,8 +65,8 @@ export function ArtistWatchlist({
         </label>
         <p className="watchlist-filter-meta">
           {visibleFollowed.length === followed.length
-            ? `${followed.length.toLocaleString()} artists followed`
-            : `${visibleFollowed.length.toLocaleString()} of ${followed.length.toLocaleString()} artists shown`}
+            ? `${formatInteger(followed.length)} artists followed`
+            : `${formatInteger(visibleFollowed.length)} of ${formatInteger(followed.length)} artists shown`}
         </p>
       </div>
 
@@ -101,11 +101,11 @@ export function ArtistWatchlist({
                     {follow.deezerFans ? (
                       <span className="status-pill px-2 py-1">
                         <Headphones className="h-3.5 w-3.5" />
-                        {follow.deezerFans.toLocaleString()}
+                        {formatInteger(follow.deezerFans)}
                       </span>
                     ) : null}
                     <span className="status-pill px-2 py-1">
-                      {follow.knownReleaseCount.toLocaleString()} known releases
+                      {formatInteger(follow.knownReleaseCount)} known releases
                     </span>
                   </div>
                 </div>

@@ -48,6 +48,7 @@ const FALLBACK_TIME_ZONES = [
   "America/Lima",
   "America/Santiago",
 ];
+const DISPLAY_LOCALE = "en-GB";
 
 type SupportedValuesKey =
   | "calendar"
@@ -59,6 +60,7 @@ type SupportedValuesKey =
 
 const dateKeyFormatterCache = new Map<string, Intl.DateTimeFormat>();
 const timestampFormatterCache = new Map<string, Intl.DateTimeFormat>();
+const integerFormatter = new Intl.NumberFormat(DISPLAY_LOCALE);
 const releaseDateFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   day: "numeric",
@@ -100,7 +102,7 @@ function getTimestampFormatter(timeZone: string) {
     return cached;
   }
 
-  const formatter = new Intl.DateTimeFormat(undefined, {
+  const formatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     timeZone,
     dateStyle: "medium",
     timeStyle: "short",
@@ -203,6 +205,10 @@ export function serializeDateOnlyForIcs(value: Date) {
 export function formatTimestampInTimeZone(value: Date | string, timeZone: string) {
   const date = typeof value === "string" ? new Date(value) : value;
   return getTimestampFormatter(timeZone).format(date);
+}
+
+export function formatInteger(value: number) {
+  return integerFormatter.format(value);
 }
 
 export function isDiscoveredLate(discoveredAt: Date, releaseDate: Date, timeZone: string) {
