@@ -32,6 +32,13 @@ type MbReleaseGroup = {
   "first-release-date"?: string;
   "primary-type"?: string;
   "secondary-types"?: string[];
+  "artist-credit"?: {
+    name: string;
+    artist?: {
+      id: string;
+      name: string;
+    };
+  }[];
 };
 
 type MbReleaseGroupBrowseResponse = {
@@ -171,6 +178,11 @@ export type MbArtistReleaseGroup = {
   firstReleaseDate: string;
   primaryType: string | null;
   secondaryTypes: string[];
+  artistCredits: {
+    name: string;
+    artistId: string | null;
+    artistName: string | null;
+  }[];
 };
 
 function parsePlatformReleaseUrl(rawUrl: string): MbReleasePlatformMapping | null {
@@ -325,6 +337,11 @@ export async function fetchArtistReleaseGroupsByMbid(
         firstReleaseDate: releaseGroup["first-release-date"]!,
         primaryType: releaseGroup["primary-type"] ?? null,
         secondaryTypes: releaseGroup["secondary-types"] ?? [],
+        artistCredits: (releaseGroup["artist-credit"] ?? []).map((credit) => ({
+          name: credit.name,
+          artistId: credit.artist?.id ?? null,
+          artistName: credit.artist?.name ?? null,
+        })),
       }));
 
     releaseGroups.push(...page);

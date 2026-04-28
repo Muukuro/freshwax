@@ -9,6 +9,11 @@ const P_TIDAL = "P4576";
 const P_APPLE_MUSIC = "P2850"; // iTunes/Apple Music numeric artist ID
 const P_MUSICBRAINZ = "P434";
 const P_DEEZER = "P2722";
+const P_OCCUPATION = "P106";
+const P_FIELD_OF_WORK = "P101";
+const P_GENRE = "P136";
+const Q_COMPOSER = "Q36834";
+const Q_CLASSICAL_MUSIC = "Q9730";
 
 export type WdPlatformResult = {
   mappings: {
@@ -17,6 +22,11 @@ export type WdPlatformResult = {
     url: string;
   }[];
   musicBrainzId: string | null;
+};
+
+export type WdArtistProfile = {
+  wikidataEntityId: string;
+  isClassicalComposer: boolean;
 };
 
 async function wdFetch(params: Record<string, string>): Promise<unknown> {
@@ -49,6 +59,21 @@ function claimString(claims: Record<string, unknown[]>, property: string): strin
   const value = datavalue?.["value"];
 
   return typeof value === "string" ? value : null;
+}
+
+function claimEntityIds(claims: Record<string, unknown[]>, property: string) {
+  const entries = claims[property];
+  if (!Array.isArray(entries) || entries.length === 0) return [];
+
+  return entries.flatMap((entry) => {
+    const claim = entry as Record<string, unknown>;
+    const mainsnak = claim["mainsnak"] as Record<string, unknown> | undefined;
+    const datavalue = mainsnak?.["datavalue"] as Record<string, unknown> | undefined;
+    const value = datavalue?.["value"] as Record<string, unknown> | undefined;
+    const numericId = value?.["numeric-id"];
+
+    return typeof numericId === "number" ? [`Q${numericId}`] : [];
+  });
 }
 
 async function findEntityByStatement(property: string, value: string): Promise<string | null> {
@@ -109,6 +134,19 @@ function claimsToResult(claims: Record<string, unknown[]>): WdPlatformResult {
   };
 }
 
+function claimsToArtistProfile(qid: string, claims: Record<string, unknown[]>): WdArtistProfile {
+  const occupations = new Set(claimEntityIds(claims, P_OCCUPATION));
+  const fieldsOfWork = new Set(claimEntityIds(claims, P_FIELD_OF_WORK));
+  const genres = new Set(claimEntityIds(claims, P_GENRE));
+
+  return {
+    wikidataEntityId: qid,
+    isClassicalComposer:
+      occupations.has(Q_COMPOSER) &&
+      (fieldsOfWork.has(Q_CLASSICAL_MUSIC) || genres.has(Q_CLASSICAL_MUSIC)),
+  };
+}
+
 /**
  * Look up streaming platform IDs using a MusicBrainz artist ID (the most
  * reliable cross-reference). Returns null on any lookup failure.
@@ -133,6 +171,34 @@ export async function fetchWikidataPlatformMappingsByMbid(
   }
 
   return claimsToResult(claims);
+}
+
+/**
+ * Look up coarse artist classification data using a MusicBrainz artist ID.
+ * This is intentionally conservative: an artist is treated as a classical
+ * composer only when Wikidata has composer occupation plus a classical
+ * field-of-work or genre statement.
+ */
+export async function fetchWikidataArtistProfileByMbid(
+  mbid: string,
+): Promise<WdArtistProfile | null> {
+  let qid: string | null;
+  try {
+    qid = await findEntityByStatement(P_MUSICBRAINZ, mbid);
+  } catch {
+    return null;
+  }
+
+  if (!qid) return null;
+
+  let claims: Record<string, unknown[]>;
+  try {
+    claims = await getEntityClaims(qid);
+  } catch {
+    return null;
+  }
+
+  return claimsToArtistProfile(qid, claims);
 }
 
 /**

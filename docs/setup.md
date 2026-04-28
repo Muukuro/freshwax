@@ -124,7 +124,6 @@ Freshwax requests these scopes:
 
 - `user-read-email`
 - `user-read-private`
-- `user-follow-read`
 
 Set these env vars:
 
@@ -147,12 +146,14 @@ Operator checklist:
 
 1. Create a Spotify app in the Spotify Developer Dashboard.
 2. Add the exact redirect URI above.
-3. Copy the client ID and client secret into `.env`.
-4. Restart the app after changing env vars.
+3. If the app is in development mode, make sure the app owner has Spotify Premium and add every connecting Spotify account to the app allowlist.
+4. Copy the client ID and client secret into `.env`.
+5. Restart the app after changing env vars.
 
 Official references:
 
 - [Spotify redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
+- [Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 - [Spotify scopes reference](https://developer.spotify.com/documentation/general/guides/scopes)
 
 ### YouTube Music / Google
@@ -621,6 +622,15 @@ Usually caused by:
 - registering `localhost` with Spotify instead of `127.0.0.1`
 - missing trailing-slash consistency in provider console settings
 
+### Spotify consent succeeds, but callback returns provider-error
+
+Usually caused by Spotify development-mode restrictions:
+
+- the app owner does not have an active Spotify Premium subscription
+- the connecting Spotify account is not added to the app allowlist
+
+Spotify may still show the consent screen in this state, but the profile API can return `403`.
+
 ### App works, but sync never happens
 
 Usually caused by:
@@ -650,6 +660,7 @@ Usually caused by:
 These external docs are useful when provider console wording changes:
 
 - [Spotify redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
+- [Spotify quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 - [Spotify scopes](https://developer.spotify.com/documentation/general/guides/scopes)
 - [Google OAuth for web server apps](https://developers.google.com/identity/protocols/oauth2/web-server)
 - [Login with Amazon docs overview](https://developer.amazon.com/docs/login-with-amazon/documentation-overview.html)

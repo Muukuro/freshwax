@@ -78,23 +78,20 @@ export function ArtistWatchlist({
       ) : (
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
           {visibleFollowed.map((follow) => (
-            <article key={follow.artistId} className="panel flex min-h-0 flex-col gap-4 px-4 py-4">
+            <article key={follow.artistId} className="panel flex min-h-0 flex-col gap-4 p-[1.1rem]">
               <div className="flex items-start gap-3">
                 <div
-                  className="release-art flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
+                  className="release-art release-art--fallback flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
                   style={
                     follow.imageUrl
                       ? { backgroundImage: `url(${follow.imageUrl})` }
-                      : {
-                          background:
-                            "linear-gradient(135deg, rgba(45,109,246,0.22), rgba(15,28,43,0.08))",
-                        }
+                      : undefined
                   }
                 >
                   {follow.imageUrl ? null : initialsForArtist(follow.canonicalName)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-lg font-semibold text-[var(--text)]">
+                  <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[var(--text)]">
                     {follow.canonicalName}
                   </h3>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--muted)]">

@@ -40,11 +40,11 @@ export default async function LoginPage({
       <div className="auth-grid">
         <section className="auth-promo hidden md:flex md:flex-col md:justify-between">
           <div>
-            <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-white">Freshwax</p>
+            <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">Freshwax</p>
             <h1 className="font-display mt-6 max-w-lg text-6xl leading-[0.92] tracking-[-0.05em] text-white">
               Catch the records you care about before they slip by.
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-8 text-blue-100/78">
+            <p className="mt-5 max-w-xl text-base leading-8 text-white/72">
               Follow artists you actually love, see what&apos;s dropping, and get upcoming releases
               straight into your calendar — no algorithm deciding what&apos;s worth your attention.
             </p>

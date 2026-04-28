@@ -42,13 +42,13 @@ export default async function ArtistsPage({
   const followedNames = new Set(followed.map((entry) => normalizeName(entry.canonicalName)));
 
   return (
-    <div className="space-y-8">
+    <div className="page-stack">
       <section className="space-y-4">
-        <div className="section-heading">
-          <div className="space-y-2">
+        <div className="page-intro">
+          <div className="page-intro__content">
             <p className="eyebrow">Artist search</p>
-            <h2 className="text-3xl font-semibold text-[var(--text)]">Find artists to follow</h2>
-            <p className="max-w-3xl text-sm leading-7 text-[var(--muted)]">
+            <h2 className="page-intro__title">Find artists to follow</h2>
+            <p className="page-intro__body max-w-3xl">
               Search the catalog, then use Settings for provider connections and import preferences.
             </p>
           </div>
@@ -121,14 +121,11 @@ export default async function ArtistsPage({
                   className="panel flex items-center gap-4 px-4 py-4"
                 >
                   <div
-                    className="release-art flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
+                    className="release-art release-art--fallback flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
                     style={
                       artist.imageUrl
                         ? { backgroundImage: `url(${artist.imageUrl})` }
-                        : {
-                            background:
-                              "linear-gradient(135deg, rgba(45,109,246,0.22), rgba(15,28,43,0.08))",
-                          }
+                        : undefined
                     }
                   >
                     {artist.imageUrl ? null : initialsForArtist(artist.name)}
@@ -159,7 +156,7 @@ export default async function ArtistsPage({
                     </div>
                   </div>
                   {followedNames.has(normalizeName(artist.name)) ? (
-                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/14 px-3 py-2 text-sm font-medium text-emerald-200 dark:text-emerald-200">
+                    <span className="status-pill px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-200">
                       Following
                     </span>
                   ) : (
@@ -198,10 +195,12 @@ export default async function ArtistsPage({
       </section>
 
       <section className="space-y-4">
-        <div className="section-heading">
+        <div className="page-intro">
           <div>
             <p className="eyebrow">Watchlist</p>
-            <h2 className="text-3xl font-semibold text-[var(--text)]">Followed artists</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-[var(--text)]">
+              Followed artists
+            </h2>
           </div>
         </div>
 

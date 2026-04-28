@@ -13,11 +13,14 @@ export default async function UpcomingPage() {
     user.settings?.hideClassicalComposerAppearances !== false;
 
   return (
-    <div className="space-y-4">
-      <div className="section-heading">
-        <div>
+    <div className="page-stack">
+      <div className="page-intro">
+        <div className="page-intro__content">
           <p className="eyebrow">Upcoming releases</p>
-          <h2 className="text-3xl font-semibold text-[var(--text)]">Calendar-first release timeline</h2>
+          <h2 className="page-intro__title">Calendar-first release timeline</h2>
+          <p className="page-intro__body">
+            Scan the closest release dates first, with your filters applied before anything reaches the feed or calendar.
+          </p>
           {singlesHidden ? (
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
               Singles are hidden right now, so this timeline stays focused on full-length releases.

@@ -142,7 +142,7 @@ export function getExternalAuthAuthorizeUrl(
       url.searchParams.set("client_id", env.SPOTIFY_CLIENT_ID ?? "");
       url.searchParams.set("response_type", "code");
       url.searchParams.set("redirect_uri", getExternalAuthCallbackUrl(provider));
-      url.searchParams.set("scope", "user-read-email user-read-private user-follow-read");
+      url.searchParams.set("scope", "user-read-email user-read-private");
       url.searchParams.set("state", state);
       return url.toString();
     }
@@ -184,6 +184,11 @@ export function getExternalAuthAuthorizeUrl(
   }
 }
 
+async function getProviderErrorBody(response: Response) {
+  const body = await response.text().catch(() => "");
+  return body ? `: ${body.slice(0, 500)}` : "";
+}
+
 async function exchangeSpotifyCode(code: string): Promise<ExternalProfile> {
   const response = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
@@ -201,7 +206,9 @@ async function exchangeSpotifyCode(code: string): Promise<ExternalProfile> {
   });
 
   if (!response.ok) {
-    throw new Error(`Spotify token exchange failed with ${response.status}`);
+    throw new Error(
+      `Spotify token exchange failed with ${response.status}${await getProviderErrorBody(response)}`,
+    );
   }
 
   const token = (await response.json()) as {
@@ -217,7 +224,14 @@ async function exchangeSpotifyCode(code: string): Promise<ExternalProfile> {
   });
 
   if (!profileResponse.ok) {
-    throw new Error(`Spotify profile fetch failed with ${profileResponse.status}`);
+    const body = await getProviderErrorBody(profileResponse);
+    const developmentModeHint =
+      profileResponse.status === 403
+        ? " Spotify development-mode apps require an active Premium subscription for the app owner and the connecting Spotify account must be added to the app allowlist."
+        : "";
+    throw new Error(
+      `Spotify profile fetch failed with ${profileResponse.status}${body}.${developmentModeHint}`,
+    );
   }
 
   const profile = (await profileResponse.json()) as {

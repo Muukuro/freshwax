@@ -37,8 +37,23 @@ const CLASSICAL_GENRE_ID = 98;
 type ReleaseWithArtists = {
   title: string;
   rawSource: Prisma.JsonValue | null;
-  artists: { artist: { canonicalName: string } }[];
+  artists: {
+    artist: {
+      canonicalName: string;
+      musicbrainzArtistId?: string;
+      isClassicalComposer?: boolean;
+      followers?: { userId: string }[];
+    };
+  }[];
   discoveries?: { discoveredAt: Date }[];
+};
+
+type JsonObject = Record<string, Prisma.JsonValue>;
+
+type MusicBrainzArtistCredit = {
+  name: string;
+  artistId: string | null;
+  artistName: string | null;
 };
 
 function normalizedSet(values: string[]) {
@@ -46,16 +61,17 @@ function normalizedSet(values: string[]) {
 }
 
 function extractTrackArtistNames(rawSource: Prisma.JsonValue | null) {
-  if (!rawSource || typeof rawSource !== "object" || Array.isArray(rawSource)) {
+  const source = getDeezerSource(rawSource);
+  if (!source) {
     return [];
   }
 
   const attributionHints =
-    "attributionHints" in rawSource &&
-    rawSource.attributionHints &&
-    typeof rawSource.attributionHints === "object" &&
-    !Array.isArray(rawSource.attributionHints)
-      ? rawSource.attributionHints
+    "attributionHints" in source &&
+    source.attributionHints &&
+    typeof source.attributionHints === "object" &&
+    !Array.isArray(source.attributionHints)
+      ? source.attributionHints
       : null;
 
   if (!attributionHints || !("trackArtistNames" in attributionHints)) {
@@ -71,11 +87,114 @@ function extractTrackArtistNames(rawSource: Prisma.JsonValue | null) {
 }
 
 function isClassicalGenre(rawSource: Prisma.JsonValue | null) {
-  if (!rawSource || typeof rawSource !== "object" || Array.isArray(rawSource)) {
+  const source = getDeezerSource(rawSource);
+
+  return Boolean(source && "genre_id" in source && source.genre_id === CLASSICAL_GENRE_ID);
+}
+
+function getJsonObject(value: Prisma.JsonValue | null): JsonObject | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as JsonObject;
+}
+
+function getDeezerSource(rawSource: Prisma.JsonValue | null) {
+  const source = getJsonObject(rawSource);
+  if (!source) return null;
+
+  if ("deezer" in source) {
+    return getJsonObject(source.deezer);
+  }
+
+  return source;
+}
+
+function extractMusicBrainzArtistCredits(
+  rawSource: Prisma.JsonValue | null,
+): MusicBrainzArtistCredit[] {
+  const source = getJsonObject(rawSource);
+  const artistCredits = source?.artistCredits;
+  if (!Array.isArray(artistCredits)) {
+    return [];
+  }
+
+  return artistCredits.flatMap((credit) => {
+    if (!credit || typeof credit !== "object" || Array.isArray(credit)) {
+      return [];
+    }
+
+    const entry = credit as JsonObject;
+    const name = typeof entry.name === "string" ? entry.name : "";
+    const artistId = typeof entry.artistId === "string" ? entry.artistId : null;
+    const artistName = typeof entry.artistName === "string" ? entry.artistName : null;
+
+    return name ? [{ name, artistId, artistName }] : [];
+  });
+}
+
+function hasUserScopedArtists(release: ReleaseWithArtists) {
+  return release.artists.some((entry) => Array.isArray(entry.artist.followers));
+}
+
+function getRelevantArtists(release: ReleaseWithArtists) {
+  if (!hasUserScopedArtists(release)) {
+    return release.artists.map((entry) => entry.artist);
+  }
+
+  return release.artists
+    .filter((entry) => (entry.artist.followers?.length ?? 0) > 0)
+    .map((entry) => entry.artist);
+}
+
+function isClassicalComposerAppearance(release: ReleaseWithArtists) {
+  const relevantArtists = getRelevantArtists(release);
+  const composerArtists = relevantArtists.filter((artist) => artist.isClassicalComposer);
+  if (composerArtists.length === 0) {
     return false;
   }
 
-  return "genre_id" in rawSource && rawSource.genre_id === CLASSICAL_GENRE_ID;
+  const artistCredits = extractMusicBrainzArtistCredits(release.rawSource);
+  if (artistCredits.length > 0) {
+    const creditedIds = new Set(
+      artistCredits.flatMap((credit) => (credit.artistId ? [credit.artistId] : [])),
+    );
+    const composerIds = new Set(
+      composerArtists.flatMap((artist) =>
+        artist.musicbrainzArtistId ? [artist.musicbrainzArtistId] : [],
+      ),
+    );
+    const creditedNames = normalizedSet(
+      artistCredits.flatMap((credit) => [credit.name, credit.artistName ?? ""]),
+    );
+    const composerNames = normalizedSet(composerArtists.map((artist) => artist.canonicalName));
+    const creditsComposer =
+      [...composerIds].some((artistId) => creditedIds.has(artistId)) ||
+      [...composerNames].some((name) => creditedNames.has(name));
+    const creditsNonComposer = artistCredits.some((credit) => {
+      if (credit.artistId && composerIds.has(credit.artistId)) {
+        return false;
+      }
+
+      const names = normalizedSet([credit.name, credit.artistName ?? ""]);
+      return [...names].some((name) => !composerNames.has(name));
+    });
+
+    return creditsComposer && creditsNonComposer;
+  }
+
+  if (!isClassicalGenre(release.rawSource)) {
+    return false;
+  }
+
+  const trackArtistNames = extractTrackArtistNames(release.rawSource);
+  if (trackArtistNames.length === 0) {
+    return false;
+  }
+
+  const trackArtists = normalizedSet(trackArtistNames);
+  return composerArtists.every((artist) => !trackArtists.has(artist.canonicalName.toLowerCase()));
 }
 
 export function filterReleasesForSettings<T extends ReleaseWithArtists>(
@@ -89,24 +208,7 @@ export function filterReleasesForSettings<T extends ReleaseWithArtists>(
   }
 
   return releases.filter((release) => {
-    if (!isClassicalGenre(release.rawSource)) {
-      return true;
-    }
-
-    const trackArtistNames = extractTrackArtistNames(release.rawSource);
-    if (trackArtistNames.length === 0) {
-      return true;
-    }
-
-    const linkedArtistNames = normalizedSet(
-      release.artists.map((entry) => entry.artist.canonicalName),
-    );
-
-    if (linkedArtistNames.size === 0) {
-      return true;
-    }
-
-    return trackArtistNames.some((name) => linkedArtistNames.has(name.trim().toLowerCase()));
+    return !isClassicalComposerAppearance(release);
   });
 }
 
@@ -126,6 +228,11 @@ function releaseInclude(userId: string) {
         artist: {
           include: {
             mappings: true,
+            followers: {
+              where: { userId },
+              select: { userId: true },
+              take: 1,
+            },
           },
         },
       },

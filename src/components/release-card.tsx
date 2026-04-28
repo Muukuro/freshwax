@@ -34,34 +34,35 @@ export function ReleaseCard({
     discoveredAt !== null && isDiscoveredLate(discoveredAt, release.releaseDate, timeZone);
 
   return (
-    <article className="panel overflow-hidden">
-      <div className="flex gap-4">
+    <article className="panel release-card overflow-hidden">
+      <div className="release-card__grid">
         <div
-          className="release-art h-24 w-24 shrink-0 rounded-[0.45rem] bg-[linear-gradient(135deg,_rgba(45,109,246,0.24),_rgba(15,28,43,0.08))] bg-cover bg-center"
+          className="release-art release-art--fallback release-card__art shrink-0 bg-cover bg-center"
           style={release.coverUrl ? { backgroundImage: `url(${release.coverUrl})` } : undefined}
         />
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+        <div className="release-card__meta">
+          <div className="release-card__topline">
+            <div className="release-card__header">
               <p className="eyebrow">{releaseTypeLabel(release.type)}</p>
-              <h3 className="mt-1 text-xl font-semibold text-[var(--text)]">{release.title}</h3>
-              <p className="text-sm text-[var(--muted)]">{artistNames}</p>
+              <h3 className="release-card__title">{release.title}</h3>
+              <p className="release-card__artist">{artistNames}</p>
             </div>
-            <div className="rounded-full border border-[var(--date-chip-border)] bg-[var(--date-chip-bg)] px-3 py-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+            <div className="release-card__date">
               {formatReleaseDate(release.releaseDate)}
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-sm text-[var(--muted)]">
+          <div className="release-card__signals">
             {showDiscoveredAt && discoveredAt && discoveredLate ? (
               <span className="status-pill">
                 <Music4 className="h-4 w-4" />
                 Found late {formatReleaseDate(discoveredAt)}
               </span>
             ) : null}
+            {ignored ? <span className="status-pill">Ignored</span> : null}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="release-card__actions">
             {(release.platformLinks ?? []).map((link) => (
               <PlatformLink
                 key={`${release.id}-${link.provider}`}

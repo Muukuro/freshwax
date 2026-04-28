@@ -13,11 +13,14 @@ export default async function DiscoveriesPage() {
     user.settings?.hideClassicalComposerAppearances !== false;
 
   return (
-    <div className="space-y-4">
-      <div className="section-heading">
-        <div>
+    <div className="page-stack">
+      <div className="page-intro">
+        <div className="page-intro__content">
           <p className="eyebrow">Recent releases</p>
-          <h2 className="text-3xl font-semibold text-[var(--text)]">What landed recently from your watchlist</h2>
+          <h2 className="page-intro__title">What landed recently from your watchlist</h2>
+          <p className="page-intro__body">
+            This feed stays focused on fresh arrivals from artists you follow, with late finds marked quietly instead of turning into alerts everywhere.
+          </p>
           {singlesHidden ? (
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
               Singles are hidden right now, so this feed only shows full-length releases and any other enabled types.

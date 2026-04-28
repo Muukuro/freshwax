@@ -66,9 +66,9 @@ export function SyncAdminPanel({
   const hasQueueJobs = queueStatus.jobs.length > 0;
 
   return (
-    <article className="panel">
+    <article className="panel sync-admin-panel">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="eyebrow">Operator tools</p>
           <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Sync admin</h2>
           <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
@@ -89,10 +89,10 @@ export function SyncAdminPanel({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="sync-admin-grid mt-6">
         <section className="space-y-3">
           <h3 className="text-lg font-semibold text-[var(--text)]">Live queue</h3>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="sync-admin-metrics grid gap-3">
             <div className="panel-muted p-3">
               <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Active</p>
               <p className="mt-2 text-2xl font-semibold text-[var(--text)]">{queueStatus.counts.active}</p>
@@ -114,7 +114,10 @@ export function SyncAdminPanel({
           {queueStatus.jobs.length > 0 ? (
             <ul className="space-y-3">
               {queueStatus.jobs.map((job) => (
-                <li key={job.id} className="panel-muted flex flex-wrap items-start justify-between gap-4 p-4">
+                <li
+                  key={job.id}
+                  className="panel-muted sync-admin-job-card flex flex-wrap items-start justify-between gap-4 p-4"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium text-[var(--text)]">{job.title}</p>
@@ -122,10 +125,10 @@ export function SyncAdminPanel({
                         {job.state}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                    <p className="sync-admin-copy mt-2 text-xs leading-5 text-[var(--muted)]">
                       Job ID: <span className="font-mono">{job.id}</span>
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                    <p className="sync-admin-copy mt-1 text-sm leading-6 text-[var(--muted)]">
                       {describeQueueJob(job, timeZone)}
                     </p>
                   </div>
@@ -162,10 +165,10 @@ export function SyncAdminPanel({
                       {log.status}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  <p className="sync-admin-copy mt-2 text-sm leading-6 text-[var(--muted)]">
                     {log.message ?? "No message recorded"}
                   </p>
-                  <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                  <p className="sync-admin-copy mt-3 text-xs leading-5 text-[var(--muted)]">
                     Created {formatTimestampInTimeZone(log.createdAt, timeZone)}
                     {log.startedAt ? ` · Started ${formatTimestampInTimeZone(log.startedAt, timeZone)}` : ""}
                     {log.finishedAt ? ` · Finished ${formatTimestampInTimeZone(log.finishedAt, timeZone)}` : ""}

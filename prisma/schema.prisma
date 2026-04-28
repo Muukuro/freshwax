@@ -214,6 +214,8 @@ model UserPlatformPreference {
 model Artist {
   id                String                @id @default(cuid())
   musicbrainzArtistId String              @unique
+  wikidataEntityId  String?
+  isClassicalComposer Boolean             @default(false)
   canonicalName     String
   normalizedName    String
   normalizedAliases String[]

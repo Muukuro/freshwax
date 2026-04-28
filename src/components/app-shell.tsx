@@ -28,13 +28,21 @@ export function AppShell({
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-8 md:py-6">
-        <div className="shell-grid min-h-[calc(100vh-2rem)]">
-          <aside className="panel sticky top-6 self-start hidden min-h-[calc(100vh-3rem)] flex-col justify-between p-6 md:flex">
+      <div className="mx-auto w-full max-w-[1680px] px-0 py-0 md:px-7 md:py-4">
+        <div className="shell-grid min-h-[calc(100vh-2rem)] items-start md:gap-4">
+          <aside className="sidebar-panel sticky top-4 hidden h-[calc(100vh-2rem)] flex-col justify-between px-6 py-4 md:flex">
             <div>
-              <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
+              <div>
+                <p className="eyebrow">Private release tracker</p>
+                <p className="brand-wordmark font-display mt-3 text-3xl font-semibold tracking-[-0.04em]">
+                  Freshwax
+                </p>
+                <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                  A calm desk for artists, upcoming drops, and the releases worth a closer look.
+                </p>
+              </div>
 
-              <nav className="mt-8 flex flex-col gap-2">
+              <nav className="mt-6 flex flex-col gap-2">
                 {navItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
@@ -53,9 +61,12 @@ export function AppShell({
               </nav>
             </div>
 
-            <div className="panel-muted mt-6 p-4">
+            <div className="sidebar-user mt-6 pt-4">
               <p className="eyebrow">Signed in</p>
-              <p className="mt-2 text-base font-semibold text-[var(--text)]">{userName}</p>
+              <p className="mt-2 text-lg font-semibold text-[var(--text)]">{userName}</p>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                Your watchlist, filters, and calendar feed stay private to this instance.
+              </p>
               <form action={signOut} className="mt-4">
                 <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">
                   Sign out
@@ -64,15 +75,20 @@ export function AppShell({
             </div>
           </aside>
 
-          <main className="flex min-w-0 flex-col gap-4">
-            <div className="flex items-center justify-between gap-3 rounded-[var(--radius-lg)] bg-[var(--mobile-header-bg)] px-4 py-3 shadow-[0_10px_24px_rgba(0,0,0,0.14)] backdrop-blur-[10px] md:hidden">
+          <main className="flex min-w-0 flex-col gap-4 p-4 md:p-0">
+            <div className="mobile-header md:hidden">
               <div className="flex min-w-0 items-center gap-3">
-                <p className="font-display text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Freshwax</p>
+                <div>
+                  <p className="eyebrow">Freshwax</p>
+                  <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">
+                    Release desk
+                  </p>
+                </div>
               </div>
               <button
                 aria-expanded={mobileMenuOpen}
                 aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--mobile-toggle-bg)] text-[var(--text)] shadow-[0_6px_16px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:-translate-y-px hover:bg-[var(--mobile-toggle-bg-hover)]"
+                className="mobile-menu-toggle"
                 onClick={() => setMobileMenuOpen((open) => !open)}
                 type="button"
               >

@@ -31,11 +31,11 @@ export default async function SignupPage({
       <div className="auth-grid">
         <section className="auth-promo hidden md:flex md:flex-col md:justify-between">
           <div>
-            <p className="font-display text-2xl font-semibold tracking-[-0.03em] text-white">Freshwax</p>
+            <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">Freshwax</p>
             <h1 className="font-display mt-6 max-w-lg text-6xl leading-[0.92] tracking-[-0.05em] text-white">
               Your own release desk, no one else&apos;s feed.
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-8 text-blue-100/78">
+            <p className="mt-5 max-w-xl text-base leading-8 text-white/72">
               Build a watchlist of artists you care about, filter out the noise, and surface new
               releases on your terms — self-hosted and entirely yours.
             </p>

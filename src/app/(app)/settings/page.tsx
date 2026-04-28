@@ -94,117 +94,158 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="panel">
-        <p className="eyebrow">Filtering</p>
-        <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Tune what counts as relevant</h2>
+    <div className="settings-grid settings-grid--page">
+      <section className="settings-stack">
+        <div className="page-intro">
+          <div className="page-intro__content">
+            <p className="eyebrow">Settings</p>
+            <h1 className="page-intro__title">Tracking preferences</h1>
+            <p className="page-intro__body">
+              Set the release window, import sources, notifications, and private calendar feed for this instance.
+            </p>
+          </div>
+        </div>
 
-        <form action={updateSettingsAction} className="mt-8 grid gap-6">
+        <div className="settings-summary">
           <div>
-            <TimezoneField
-              defaultValue={timeZone}
-              name="timezone"
-              supportedTimeZones={supportedTimeZones.length > 0 ? supportedTimeZones : getFallbackTimeZones()}
-            />
+            <p className="eyebrow">Release window</p>
+            <p>{user.settings?.futureHorizonDays ?? 180} days ahead</p>
           </div>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <label className="field h-full justify-between">
-              <span>Future horizon</span>
-              <input
-                defaultValue={user.settings?.futureHorizonDays ?? 180}
-                min="14"
-                name="futureHorizonDays"
-                type="number"
-              />
-            </label>
-            <label className="field h-full justify-between">
-              <span>Recent releases window</span>
-              <input
-                defaultValue={user.settings?.discoveryWindowDays ?? 30}
-                min="1"
-                name="discoveryWindowDays"
-                type="number"
-              />
-            </label>
+          <div>
+            <p className="eyebrow">Recent feed</p>
+            <p>{user.settings?.discoveryWindowDays ?? 30} days back</p>
           </div>
-          <div className="field gap-3">
-            <span>Release types</span>
-            <div className="flex flex-col gap-2">
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.includeSingles ?? true}
-                  name="includeSingles"
-                  type="checkbox"
-                />
-                Include singles
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.includeEps ?? true}
-                  name="includeEps"
-                  type="checkbox"
-                />
-                Include EPs
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.includeCompilations ?? false}
-                  name="includeCompilations"
-                  type="checkbox"
-                />
-                Include compilations
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.includeLive ?? false}
-                  name="includeLive"
-                  type="checkbox"
-                />
-                Include live releases
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.includeReissues ?? false}
-                  name="includeReissues"
-                  type="checkbox"
-                />
-                Include reissues and remasters
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.hideClassicalComposerAppearances ?? true}
-                  name="hideClassicalComposerAppearances"
-                  type="checkbox"
-                />
-                Hide classical composer appearances
-              </label>
-              <label className="check">
-                <input
-                  defaultChecked={user.settings?.hideIgnored ?? true}
-                  name="hideIgnored"
-                  type="checkbox"
-                />
-                Hide ignored items from feeds and calendar
-              </label>
+          <div>
+            <p className="eyebrow">Timezone</p>
+            <p>{timeZone}</p>
+          </div>
+        </div>
+
+        <section className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
+              <p className="eyebrow">Filtering</p>
+              <h2 className="panel-heading__title">Release defaults</h2>
+              <p className="panel-heading__text">
+                These settings shape upcoming releases, recent discoveries, and your private calendar feed.
+              </p>
             </div>
           </div>
 
-          <div>
-            <SubmitButton className="primary-button" pendingLabel="Saving...">
-              Save settings
-            </SubmitButton>
-          </div>
-        </form>
+          <form action={updateSettingsAction} className="mt-8 settings-stack">
+            <div className="settings-cluster">
+              <TimezoneField
+                defaultValue={timeZone}
+                name="timezone"
+                supportedTimeZones={supportedTimeZones.length > 0 ? supportedTimeZones : getFallbackTimeZones()}
+              />
+            </div>
+            <div className="settings-cluster">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="field h-full justify-between">
+                  <span>Future horizon</span>
+                  <input
+                    defaultValue={user.settings?.futureHorizonDays ?? 180}
+                    min="14"
+                    name="futureHorizonDays"
+                    type="number"
+                  />
+                </label>
+                <label className="field h-full justify-between">
+                  <span>Recent releases window</span>
+                  <input
+                    defaultValue={user.settings?.discoveryWindowDays ?? 30}
+                    min="1"
+                    name="discoveryWindowDays"
+                    type="number"
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="settings-cluster">
+              <div className="field gap-3">
+                <span>Release types and visibility</span>
+                <div className="grid gap-3">
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.includeSingles ?? true}
+                      name="includeSingles"
+                      type="checkbox"
+                    />
+                    <span>Include singles</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.includeEps ?? true}
+                      name="includeEps"
+                      type="checkbox"
+                    />
+                    <span>Include EPs</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.includeCompilations ?? false}
+                      name="includeCompilations"
+                      type="checkbox"
+                    />
+                    <span>Include compilations</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.includeLive ?? false}
+                      name="includeLive"
+                      type="checkbox"
+                    />
+                    <span>Include live releases</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.includeReissues ?? false}
+                      name="includeReissues"
+                      type="checkbox"
+                    />
+                    <span>Include reissues and remasters</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.hideClassicalComposerAppearances ?? true}
+                      name="hideClassicalComposerAppearances"
+                      type="checkbox"
+                    />
+                    <span>Hide classical composer appearances</span>
+                  </label>
+                  <label className="check">
+                    <input
+                      defaultChecked={user.settings?.hideIgnored ?? true}
+                      name="hideIgnored"
+                      type="checkbox"
+                    />
+                    <span>Hide ignored items from feeds and calendar</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <SubmitButton className="primary-button" pendingLabel="Saving...">
+                Save settings
+              </SubmitButton>
+            </div>
+          </form>
+        </section>
       </section>
 
-      <section className="space-y-4">
-        <article className="panel">
-          <p className="eyebrow">Onboarding</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Re-run your platform setup</h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Need to re-think favorites, import defaults, or link visibility from a clean slate? Run the
-            onboarding save flow again with your current choices.
-          </p>
+      <section className="settings-stack">
+        <article className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
+              <p className="eyebrow">Onboarding</p>
+              <h2 className="panel-heading__title">Platform setup</h2>
+              <p className="panel-heading__text">
+                Revisit favorites, import defaults, and link visibility without changing your account.
+              </p>
+            </div>
+          </div>
           <div className="mt-4">
             <Link className="ghost-button" href="/onboarding">
               Open onboarding again
@@ -214,12 +255,12 @@ export default async function SettingsPage() {
 
         <SyncAdminPanel logs={syncAdminLogs} queueStatus={queueStatus} timeZone={timeZone} />
 
-        <article className="panel">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+        <article className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
               <p className="eyebrow">Core tracking</p>
-              <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">External connections</h2>
-              <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+              <h2 className="panel-heading__title">Streaming connections</h2>
+              <p className="panel-heading__text">
                 {getCoreModeSummary()}
               </p>
             </div>
@@ -236,7 +277,7 @@ export default async function SettingsPage() {
               const preference = preferenceByProvider.get(provider);
               const providerConfigured = isProviderConfigured(provider);
               return (
-                <article key={provider} className="panel-muted space-y-4 p-4">
+                <article key={provider} className="settings-provider-card space-y-4 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
@@ -324,11 +365,13 @@ export default async function SettingsPage() {
           </div>
         </article>
 
-        <article className="panel">
-          <p className="eyebrow">Last.fm</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">
-            Optional username-based import
-          </h2>
+        <article className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
+              <p className="eyebrow">Last.fm</p>
+              <h2 className="panel-heading__title">Username import</h2>
+            </div>
+          </div>
           <form action={saveLastfmUsernameAction} className="mt-6 space-y-4">
             <label className="field">
               <span>Last.fm username</span>
@@ -375,12 +418,16 @@ export default async function SettingsPage() {
           ) : null}
         </article>
 
-        <article className="panel">
-          <p className="eyebrow">Notifications</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Release alerts</h2>
-          <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-            Enable browser push for this device and choose which alerts Freshwax should send.
-          </p>
+        <article className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
+              <p className="eyebrow">Notifications</p>
+              <h2 className="panel-heading__title">Release alerts</h2>
+              <p className="panel-heading__text">
+                Enable browser push for this device and choose which alerts Freshwax should send.
+              </p>
+            </div>
+          </div>
 
           <div className="mt-6">
             <PushNotificationSettings vapidPublicKey={env.WEB_PUSH_PUBLIC_KEY ?? null} />
@@ -409,9 +456,13 @@ export default async function SettingsPage() {
           </form>
         </article>
 
-        <article className="panel">
-          <p className="eyebrow">Private iCalendar feed</p>
-          <h2 className="mt-3 text-3xl font-semibold text-[var(--text)]">Use in any calendar client</h2>
+        <article className="panel settings-panel">
+          <div className="panel-heading">
+            <div className="panel-heading__body">
+              <p className="eyebrow">Private iCalendar feed</p>
+              <h2 className="panel-heading__title">Use in any calendar client</h2>
+            </div>
+          </div>
           <div className="panel-muted mt-6 p-4">
             <code className="block overflow-x-auto text-sm text-[var(--accent-strong)]">{calendarUrl}</code>
           </div>

@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, CalendarDays, Sparkles, Users } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, Search, Sparkles, Users } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
@@ -13,26 +13,24 @@ export default async function DashboardPage() {
   const data = await getDashboardData(user.id);
 
   return (
-    <div className="space-y-8">
-      <section className="hero-card">
-        <div className="relative z-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--signal)]">Dashboard</p>
-          <h2 className="font-display mt-3 max-w-2xl text-5xl leading-[0.92] tracking-[-0.05em] text-white md:text-6xl">
-            Keep a private watchlist and catch releases before they disappear into the feed.
-          </h2>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-blue-100/78">
-            Freshwax now treats listening platforms as preferences instead of hard-coded defaults, and
-            a background worker keeps your feed fresh without manual refreshes.
+    <div className="page-stack">
+      <section className="dashboard-command">
+        <div>
+          <p className="eyebrow">Dashboard</p>
+          <h1 className="dashboard-command__title">Release desk</h1>
+          <p className="dashboard-command__body">
+            {data.upcoming.length} upcoming, {data.discoveries.length} recent,{" "}
+            {data.followedArtistsCount} followed artists.
           </p>
         </div>
-        <div className="relative z-10 flex flex-col justify-between gap-6 md:max-w-xs md:items-end">
-          <div className="rounded-[1rem] border border-white/12 bg-white/8 p-4 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--signal)]">At a glance</p>
-            <p className="mt-2 text-sm leading-7 text-blue-100/76">
-              Track what is coming, what arrived late, and let Freshwax queue background sync when
-              your watchlist needs a refresh.
-            </p>
-          </div>
+        <div className="dashboard-command__actions">
+          <a className="primary-button" href="/artists">
+            <Search className="h-4 w-4" />
+            Follow artists
+          </a>
+          <span className="status-pill status-pill--steady">
+            {data.settings.futureHorizonDays}d ahead &middot; {data.settings.discoveryWindowDays}d back
+          </span>
         </div>
       </section>
 
@@ -57,12 +55,12 @@ export default async function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-8 xl:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
-          <div className="section-heading">
+          <div className="section-bar">
             <div>
               <p className="eyebrow">Upcoming</p>
-              <h3 className="text-2xl font-semibold text-[var(--text)]">Nearest release dates</h3>
+              <h2 className="section-bar__title">Nearest release dates</h2>
             </div>
             <a className="ghost-button" href="/upcoming">
               <CalendarClock className="h-4 w-4" />
@@ -81,11 +79,11 @@ export default async function DashboardPage() {
           )}
         </div>
 
-          <div className="space-y-4">
-          <div className="section-heading">
+        <div className="space-y-4">
+          <div className="section-bar">
             <div>
               <p className="eyebrow">Recent releases</p>
-              <h3 className="text-2xl font-semibold text-[var(--text)]">Latest releases from followed artists</h3>
+              <h2 className="section-bar__title">Latest releases from followed artists</h2>
             </div>
             <a className="ghost-button" href="/discoveries">
               <Sparkles className="h-4 w-4" />
@@ -115,6 +113,9 @@ export default async function DashboardPage() {
           <p className="eyebrow">Calendar feed</p>
           <p className="mt-2 text-base text-[var(--text)]">
             Subscribe with your private ICS URL in Apple Calendar, Google Calendar, or Fantastical.
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
+            Ignored releases and your current filters stay reflected in the feed automatically.
           </p>
         </div>
         <a className="ghost-button" href="/settings">

@@ -23,6 +23,7 @@ import {
   searchArtistMbid,
 } from "@/lib/providers/musicbrainz";
 import {
+  fetchWikidataArtistProfileByMbid,
   fetchWikidataPlatformMappingsByMbid,
 } from "@/lib/providers/wikidata";
 import {
@@ -306,6 +307,7 @@ async function buildCoreReleaseCandidates(
         releaseGroupId: releaseGroup.releaseGroupId,
         primaryType: releaseGroup.primaryType,
         secondaryTypes: releaseGroup.secondaryTypes,
+        artistCredits: releaseGroup.artistCredits,
       } satisfies Prisma.InputJsonValue,
       releaseGroupMbid: releaseGroup.releaseGroupId,
       deezerProviderReleaseId: null,
@@ -780,6 +782,18 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
     }
 
     const wdResult = await fetchWikidataPlatformMappingsByMbid(mbid);
+    const wdProfile = await fetchWikidataArtistProfileByMbid(mbid);
+    if (wdProfile) {
+      await prisma.artist.update({
+        where: { id: artistId },
+        data: {
+          wikidataEntityId: wdProfile.wikidataEntityId,
+          isClassicalComposer: wdProfile.isClassicalComposer,
+        },
+      });
+      artist.wikidataEntityId = wdProfile.wikidataEntityId;
+      artist.isClassicalComposer = wdProfile.isClassicalComposer;
+    }
     const enrichedMappings = [...(wdResult?.mappings ?? [])];
 
     // MusicBrainz supplements Wikidata for providers it doesn't cover and is also
