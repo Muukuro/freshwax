@@ -83,9 +83,9 @@ export function AppShell({
             <div className="mobile-header md:hidden">
               <div className="flex min-w-0 items-center gap-3">
                 <div>
-                  <p className="eyebrow">Freshwax</p>
+                  <p className="eyebrow">Private release tracker</p>
                   <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">
-                    Release desk
+                    Freshwax
                   </p>
                 </div>
               </div>
