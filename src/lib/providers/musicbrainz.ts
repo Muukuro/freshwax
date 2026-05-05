@@ -1,10 +1,16 @@
 import { Provider } from "@prisma/client";
 
+import { env } from "@/lib/env";
+
 const MB_API = "https://musicbrainz.org/ws/2";
-// MusicBrainz requires a descriptive User-Agent per their API terms.
-const USER_AGENT = "freshwax/1.0 (self-hosted music release tracker)";
+// MusicBrainz asks for a descriptive, contactable User-Agent.
+const USER_AGENT = `Freshwax/0.1.0 (${env.APP_URL})`;
+const MB_MIN_REQUEST_INTERVAL_MS = 1_100;
 const MB_MAX_RETRIES = 4;
 const MB_MAX_BACKOFF_MS = 30_000;
+
+let nextAllowedMusicBrainzRequestAt = 0;
+let musicBrainzRequestQueue = Promise.resolve();
 
 type MbRelation = {
   "target-type": string;
@@ -23,7 +29,12 @@ type MbArtistResponse = {
 };
 
 type MbSearchResponse = {
-  artists?: { id: string; name: string; score: number }[];
+  artists?: {
+    id?: string;
+    name?: string;
+    disambiguation?: string;
+    score?: number;
+  }[];
 };
 
 type MbReleaseGroup = {
@@ -52,8 +63,34 @@ export type MbPlatformMapping = {
   url: string;
 };
 
+export type MbArtistSearchResult = {
+  id: string;
+  name: string;
+  disambiguation: string | null;
+  score: number | null;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForMusicBrainzRequestSlot() {
+  const waitForSlot = musicBrainzRequestQueue.then(async () => {
+    const delayMs = Math.max(0, nextAllowedMusicBrainzRequestAt - Date.now());
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
+    nextAllowedMusicBrainzRequestAt = Date.now() + MB_MIN_REQUEST_INTERVAL_MS;
+  });
+
+  musicBrainzRequestQueue = waitForSlot.catch(() => undefined);
+  await waitForSlot;
+}
+
 async function mbFetch(url: string): Promise<unknown> {
   for (let attempt = 0; ; attempt += 1) {
+    await waitForMusicBrainzRequestSlot();
+
     const response = await fetch(url, {
       headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
       cache: "no-store",
@@ -76,7 +113,7 @@ async function mbFetch(url: string): Promise<unknown> {
     const retryAfter = Number(response.headers.get("Retry-After") ?? 0);
     const backoffMs =
       retryAfter > 0 ? retryAfter * 1000 : Math.min(1000 * 2 ** attempt, MB_MAX_BACKOFF_MS);
-    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    await sleep(backoffMs);
   }
 }
 
@@ -103,11 +140,31 @@ export async function lookupMbidByUrl(resourceUrl: string): Promise<string | nul
  * callers should prefer URL-based lookup when a provider ID is available.
  */
 export async function searchArtistMbid(artistName: string): Promise<string | null> {
+  const artists = await searchArtists(artistName, 1);
+
+  return artists[0]?.id ?? null;
+}
+
+export async function searchArtists(query: string, limit = 10): Promise<MbArtistSearchResult[]> {
+  if (!query.trim()) {
+    return [];
+  }
+
+  const boundedLimit = Math.max(1, Math.min(limit, 100));
   const data = (await mbFetch(
-    `${MB_API}/artist?query=${encodeURIComponent(artistName)}&limit=1&fmt=json`,
+    `${MB_API}/artist?query=${encodeURIComponent(query.trim())}&limit=${boundedLimit}&fmt=json`,
   )) as MbSearchResponse;
 
-  return data.artists?.[0]?.id ?? null;
+  return (data.artists ?? [])
+    .filter((artist): artist is Required<Pick<NonNullable<MbSearchResponse["artists"]>[number], "id" | "name">> & NonNullable<MbSearchResponse["artists"]>[number] =>
+      Boolean(artist.id && artist.name),
+    )
+    .map((artist) => ({
+      id: artist.id,
+      name: artist.name,
+      disambiguation: artist.disambiguation ?? null,
+      score: typeof artist.score === "number" ? artist.score : null,
+    }));
 }
 
 function parsePlatformUrl(rawUrl: string): MbPlatformMapping | null {

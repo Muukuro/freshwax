@@ -1,21 +1,13 @@
 import { Provider, type Prisma } from "@prisma/client";
 
 import { searchArtists as searchDeezerArtists } from "@/lib/providers/deezer";
-import { searchArtistMbid } from "@/lib/providers/musicbrainz";
+import {
+  searchArtistMbid,
+  searchArtists as searchMusicBrainzProviderArtists,
+} from "@/lib/providers/musicbrainz";
 import { buildArtistPlatformLinks } from "@/lib/platform-links";
 import { STREAMING_PROVIDERS, getDefaultProviderPreference } from "@/lib/platforms";
 import { normalizeName } from "@/lib/utils";
-
-type MusicBrainzArtist = {
-  id?: string;
-  name?: string;
-  disambiguation?: string;
-  score?: number;
-};
-
-type MusicBrainzArtistResponse = {
-  artists?: MusicBrainzArtist[];
-};
 
 export type CatalogArtistSearchResult = {
   catalogArtistId: string;
@@ -39,40 +31,15 @@ export type CatalogArtistSearchResult = {
 };
 
 async function searchMusicBrainzArtists(query: string) {
-  if (!query.trim()) {
-    return [];
-  }
+  const artists = await searchMusicBrainzProviderArtists(query, 10);
 
-  const url = new URL("https://musicbrainz.org/ws/2/artist");
-  url.searchParams.set("query", query.trim());
-  url.searchParams.set("fmt", "json");
-  url.searchParams.set("limit", "10");
-
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "Freshwax/0.1 (+self-hosted release tracker)",
-    },
-    next: { revalidate: 60 * 60 },
-  });
-
-  if (!response.ok) {
-    throw new Error(`MusicBrainz artist search failed with ${response.status}`);
-  }
-
-  const payload = (await response.json()) as MusicBrainzArtistResponse;
-
-  return (payload.artists ?? [])
-    .filter((artist): artist is Required<Pick<MusicBrainzArtist, "id" | "name">> & MusicBrainzArtist =>
-      Boolean(artist.id && artist.name),
-    )
-    .map((artist) => ({
-      catalogArtistId: artist.id,
-      musicbrainzArtistId: artist.id,
-      name: artist.name,
-      description: artist.disambiguation ?? null,
-      score: typeof artist.score === "number" ? artist.score : null,
-    }));
+  return artists.map((artist) => ({
+    catalogArtistId: artist.id,
+    musicbrainzArtistId: artist.id,
+    name: artist.name,
+    description: artist.disambiguation,
+    score: artist.score,
+  }));
 }
 
 async function resolveDeezerArtistMusicbrainzId(name: string) {
@@ -134,12 +101,13 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
     return merged;
   }
 
-  const deezerFallbackResults = await Promise.all(
-    deezerResults.slice(0, 10).map(async (artist) => ({
+  const deezerFallbackResults = [];
+  for (const artist of deezerResults.slice(0, 10)) {
+    deezerFallbackResults.push({
       artist,
       musicbrainzArtistId: await resolveDeezerArtistMusicbrainzId(artist.name),
-    })),
-  );
+    });
+  }
 
   return deezerFallbackResults.flatMap(({ artist, musicbrainzArtistId }) => {
     if (!musicbrainzArtistId) {

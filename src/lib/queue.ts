@@ -7,6 +7,7 @@ const ARTIST_SYNC_CANCEL_PREFIX = "freshwax:artist-sync:cancel:";
 const ARTIST_SYNC_CANCEL_TTL_SECONDS = 60 * 60;
 const IMPORT_CANCEL_PREFIX = "freshwax:import:cancel:";
 const IMPORT_CANCEL_TTL_SECONDS = 60 * 60;
+const SCHEDULE_JITTER_RATIO = 0.1;
 
 let queueConnection: IORedis | null = null;
 let artistSyncQueue: Queue | null = null;
@@ -88,10 +89,15 @@ export async function enqueueGlobalSync() {
 }
 
 export async function ensureRecurringSync() {
+  const intervalMs = env.SYNC_INTERVAL_MINUTES * 60 * 1000;
+  const jitterMs = Math.floor(Math.random() * intervalMs * SCHEDULE_JITTER_RATIO);
+
   await getArtistSyncQueue().upsertJobScheduler(
     "scheduled-global-sync",
     {
-      every: env.SYNC_INTERVAL_MINUTES * 60 * 1000,
+      every: intervalMs,
+      immediately: false,
+      startDate: new Date(Date.now() + jitterMs),
     },
     {
       name: "sync-all-artists",
