@@ -14,12 +14,13 @@ Freshwax works without any third-party provider credentials. PostgreSQL, Redis, 
 
 Required:
 
-- Node.js 22.x and npm
+- Node.js 20.9.0 or newer and npm
 - PostgreSQL
 - Redis
 
 Recommended local baseline:
 
+- Node.js 24.x LTS, matching the default Docker runtime
 - Docker Desktop or another Docker engine for running PostgreSQL and Redis locally
 - `APP_URL=http://127.0.0.1:3000` for local development
 
