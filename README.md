@@ -9,8 +9,9 @@ It keeps a canonical list of artists and releases, lets each user follow artists
 - Self-hosted and operator-friendly
 - Local email/password auth built in
 - Works without mandatory third-party platform credentials
-- Deezer-powered search and metadata enrichment
-- Optional TIDAL outbound links and account import paths
+- MusicBrainz-backed catalog search and release discovery
+- Optional streaming platform links, account connections, and imports where implemented
+- Deezer public API fallback and enrichment when mappings are available
 - Private per-user release calendar feeds
 - Background sync with BullMQ + Redis
 - PostgreSQL + Prisma data model designed for long-lived canonical records
@@ -23,7 +24,7 @@ Each user gets their own followed artists, discovery feed, ignore state, notific
 
 ## Feature Highlights
 
-- Artist search backed by Deezer, with canonical artist and release records stored locally
+- Artist search backed by MusicBrainz, with Deezer used as a public fallback/enrichment source
 - Per-user follows, discovery feed, and ignore state
 - Upcoming and recent-release views tuned for actual listening workflows
 - Private `.ics` feed per user, exposed at `/calendar/:token.ics`
@@ -183,7 +184,9 @@ npm run prisma:seed
 
 ## Current Scope and Limitations
 
-- Deezer is the primary live catalog source and metadata can be incomplete
+- MusicBrainz is the canonical identity and release-discovery source
+- Streaming platform integrations are optional and additive; Deezer is not required for core tracking
+- Deezer metadata can be incomplete and is used as best-effort public fallback/enrichment when mappings are available
 - TIDAL is currently used for outbound links and optional account-linked import paths
 - Some provider surfaces appear in preferences before full end-to-end support exists
 - Release typing and provider matching rely on best-effort heuristics where source metadata is inconsistent

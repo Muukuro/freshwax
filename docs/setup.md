@@ -272,9 +272,9 @@ Official reference:
 
 Purpose in Freshwax:
 
-- optional account linking
-- library import
-- metadata enrichment and exact provider mappings
+- optional public catalog fallback/enrichment through Deezer's unauthenticated API
+- exact Deezer links and mappings when MusicBrainz or Deezer search can resolve them
+- optional account linking and library import when the operator already has Deezer app credentials
 
 Freshwax requests these Deezer permissions:
 
@@ -293,16 +293,18 @@ Register this redirect URI:
 
 Operator checklist:
 
-1. Create or reuse a Deezer app.
+1. Reuse an existing Deezer app if you already operate one. Do not rely on being able to create a new Deezer developer application for a Freshwax install.
 2. Add the exact callback URL above.
 3. Confirm the app is allowed to request `basic_access`, `manage_library`, and `offline_access`.
 4. Copy the Deezer app ID and secret into `.env`.
 
 Notes:
 
-- Deezer integration is optional. Core release tracking still works without it.
+- Deezer credentials are optional. Core release tracking still works without them.
+- Freshwax can call Deezer's public API without OAuth credentials for best-effort search fallback and metadata enrichment.
 - Freshwax handles Deezer quota responses with exponential backoff and keeps sync concurrency low by default.
-- Deezer write-back beyond library/account import is intentionally limited.
+- Deezer is not the primary catalog authority; MusicBrainz remains the canonical identity and release-discovery source.
+- Deezer write-back is not a core feature. The connected-account path is limited to account identity and followed-artist import.
 
 ### Apple Music / Sign in with Apple
 
