@@ -183,6 +183,10 @@ export function buildArtistDeepLink(provider: Provider, providerArtistId: string
   switch (provider) {
     case Provider.SPOTIFY:
       return `https://open.spotify.com/artist/${providerArtistId}`;
+    case Provider.APPLE_MUSIC:
+      return `https://music.apple.com/artist/${providerArtistId}`;
+    case Provider.AMAZON_MUSIC:
+      return `https://music.amazon.com/artists/${providerArtistId}`;
     case Provider.DEEZER:
       return `https://www.deezer.com/artist/${providerArtistId}`;
     case Provider.TIDAL:
@@ -198,6 +202,12 @@ export function buildReleaseDeepLink(provider: Provider, providerReleaseId: stri
   switch (provider) {
     case Provider.SPOTIFY:
       return `https://open.spotify.com/album/${providerReleaseId}`;
+    case Provider.APPLE_MUSIC:
+      return `https://music.apple.com/album/${providerReleaseId}`;
+    case Provider.AMAZON_MUSIC:
+      return `https://music.amazon.com/albums/${providerReleaseId}`;
+    case Provider.YOUTUBE_MUSIC:
+      return `https://music.youtube.com/browse/${providerReleaseId}`;
     case Provider.DEEZER:
       return `https://www.deezer.com/album/${providerReleaseId}`;
     case Provider.TIDAL:

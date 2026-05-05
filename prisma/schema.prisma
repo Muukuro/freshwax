@@ -50,6 +50,11 @@ enum NotificationDeliveryStatus {
   FAILED
 }
 
+enum ProviderMappingSource {
+  AUTOMATIC
+  MANUAL
+}
+
 model User {
   id                 String              @id @default(cuid())
   email              String              @unique
@@ -252,6 +257,8 @@ model ArtistProviderMapping {
   providerArtistId String
   url              String?
   rawJson          Json?
+  source           ProviderMappingSource @default(AUTOMATIC)
+  manuallyCorrectedAt DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   artist           Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
@@ -305,6 +312,8 @@ model ReleaseProviderMapping {
   providerReleaseId String
   url               String?
   rawJson           Json?
+  source            ProviderMappingSource @default(AUTOMATIC)
+  manuallyCorrectedAt DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   release           Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)

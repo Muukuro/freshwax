@@ -40,6 +40,14 @@ _Avoid_: Upcoming-only feed
 The main outbound release link chosen from the user's favorite visible platform preferences.
 _Avoid_: Generic platform link, equal link list
 
+**Manual Provider Mapping**:
+A human-maintained exact link between a canonical Freshwax artist or release and an external provider item.
+_Avoid_: Metadata edit, catalog rewrite, personal link preference
+
+**Composer Appearance**:
+A release where a followed classical artist appears only as the composer or work creator, while performers, ensembles, or conductors are the primary release artists.
+_Avoid_: Hide classical, classical release
+
 ## Relationships
 
 - A **Release** belongs in feeds only when its release type passes the user's filters.
@@ -49,6 +57,10 @@ _Avoid_: Generic platform link, equal link list
 - An **Upcoming Release** becomes a **Recent Release** on release day.
 - A **Calendar Feed** includes both **Recent Releases** and **Upcoming Releases** within their date windows.
 - A **Recent Release** card should expose one **Primary Listen Action** before secondary platform links.
+- A **Manual Provider Mapping** repairs provider linkage without changing the canonical **Release** or artist identity.
+- A **Primary Listen Action** may use a **Manual Provider Mapping** when automatic provider linkage is wrong or incomplete.
+- A **Composer Appearance** may be hidden without excluding the followed artist's own performer or conductor releases.
+- A followed artist's association with a **Release** is either a primary association or a **Composer Appearance** for current feed-filtering purposes.
 
 ## Example dialogue
 
@@ -63,3 +75,5 @@ _Avoid_: Generic platform link, equal link list
 - Release-type settings were suspected to control import scope, but they are **Release-Type Preferences**: persistent visibility defaults, not sync/import limits.
 - **View Filters** expose user-facing release formats as independent toggles; albums and EPs must not be grouped into one control, and provider-metadata fallbacks like unknown type should not be presented as a normal filter.
 - Recent-first product decisions belong in both `CONTEXT.md` for language and `docs/architecture.md` for product/architecture alignment.
+- "metadata correction" can mean too much; for provider link repair, use **Manual Provider Mapping** because canonical title, date, type, and identity remain owned by the catalog sources.
+- "hide classical" was too broad; the resolved concept is **Composer Appearance**, not every classical **Release**.

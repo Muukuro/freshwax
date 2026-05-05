@@ -288,6 +288,24 @@ export async function fetchArtistById(providerArtistId: string) {
   return mapArtist(payload);
 }
 
+function mapAlbum(release: DeezerAlbum) {
+  return {
+    providerReleaseId: String(release.id),
+    title: release.title,
+    deezerUrl: release.link,
+    coverUrl: buildDeezerCoverUrl(release),
+    releaseDate: release.release_date,
+    recordType: release.record_type ?? null,
+    raw: release,
+  };
+}
+
+export async function fetchAlbumById(providerReleaseId: string) {
+  const url = `${DEEZER_API}/album/${providerReleaseId}`;
+  const payload = await deezerFetch<DeezerAlbum>(url, { nextRevalidate: 60 * 60 });
+  return mapAlbum(payload);
+}
+
 export async function searchArtists(query: string) {
   if (!query.trim()) return [];
 
@@ -331,15 +349,7 @@ export async function fetchArtistReleases(providerArtistId: string) {
     pages += 1;
   }
 
-  return releases.map((release) => ({
-    providerReleaseId: String(release.id),
-    title: release.title,
-    deezerUrl: release.link,
-    coverUrl: buildDeezerCoverUrl(release),
-    releaseDate: release.release_date,
-    recordType: release.record_type ?? null,
-    raw: release,
-  }));
+  return releases.map(mapAlbum);
 }
 
 export async function fetchTrackArtistNames(tracklistUrl: string) {

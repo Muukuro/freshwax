@@ -698,6 +698,7 @@ export async function getArtistDetail(userId: string, artistId: string) {
         },
         preferences,
       ),
+      mappings: follow.artist.mappings,
       lastSyncedAt: follow.lastSyncedAt?.toISOString() ?? null,
     },
     releases: filterReleasesForSettings(releases, settings).map((release) =>

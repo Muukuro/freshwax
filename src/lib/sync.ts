@@ -1,4 +1,4 @@
-import { JobKind, JobStatus, Provider, type Prisma } from "@prisma/client";
+import { JobKind, JobStatus, Provider, ProviderMappingSource, type Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import {
@@ -70,6 +70,140 @@ type SyncWindow = {
 };
 
 const CLASSICAL_GENRE_ID = 98;
+
+async function upsertAutomaticArtistProviderMapping(input: {
+  artistId: string;
+  provider: Provider;
+  providerArtistId: string;
+  url: string | null;
+  rawJson?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+}) {
+  const manualForArtistProvider = await prisma.artistProviderMapping.findFirst({
+    where: {
+      artistId: input.artistId,
+      provider: input.provider,
+      source: ProviderMappingSource.MANUAL,
+    },
+    select: { id: true },
+  });
+
+  if (manualForArtistProvider) {
+    return;
+  }
+
+  const existing = await prisma.artistProviderMapping.findUnique({
+    where: {
+      provider_providerArtistId: {
+        provider: input.provider,
+        providerArtistId: input.providerArtistId,
+      },
+    },
+    select: { id: true, source: true, manuallyCorrectedAt: true },
+  });
+
+  if (existing?.source === ProviderMappingSource.MANUAL || existing?.manuallyCorrectedAt) {
+    return;
+  }
+
+  await prisma.artistProviderMapping.deleteMany({
+    where: {
+      artistId: input.artistId,
+      provider: input.provider,
+      providerArtistId: { not: input.providerArtistId },
+      source: { not: ProviderMappingSource.MANUAL },
+    },
+  });
+
+  await prisma.artistProviderMapping.upsert({
+    where: {
+      provider_providerArtistId: {
+        provider: input.provider,
+        providerArtistId: input.providerArtistId,
+      },
+    },
+    update: {
+      artistId: input.artistId,
+      url: input.url,
+      rawJson: input.rawJson ?? undefined,
+      source: ProviderMappingSource.AUTOMATIC,
+    },
+    create: {
+      artistId: input.artistId,
+      provider: input.provider,
+      providerArtistId: input.providerArtistId,
+      url: input.url,
+      rawJson: input.rawJson ?? undefined,
+      source: ProviderMappingSource.AUTOMATIC,
+    },
+  });
+}
+
+async function upsertAutomaticReleaseProviderMapping(input: {
+  releaseId: string;
+  provider: Provider;
+  providerReleaseId: string;
+  url: string | null;
+  rawJson?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
+}) {
+  const manualForReleaseProvider = await prisma.releaseProviderMapping.findFirst({
+    where: {
+      releaseId: input.releaseId,
+      provider: input.provider,
+      source: ProviderMappingSource.MANUAL,
+    },
+    select: { id: true },
+  });
+
+  if (manualForReleaseProvider) {
+    return;
+  }
+
+  const existing = await prisma.releaseProviderMapping.findUnique({
+    where: {
+      provider_providerReleaseId: {
+        provider: input.provider,
+        providerReleaseId: input.providerReleaseId,
+      },
+    },
+    select: { id: true, source: true, manuallyCorrectedAt: true },
+  });
+
+  if (existing?.source === ProviderMappingSource.MANUAL || existing?.manuallyCorrectedAt) {
+    return;
+  }
+
+  await prisma.releaseProviderMapping.deleteMany({
+    where: {
+      releaseId: input.releaseId,
+      provider: input.provider,
+      providerReleaseId: { not: input.providerReleaseId },
+      source: { not: ProviderMappingSource.MANUAL },
+    },
+  });
+
+  await prisma.releaseProviderMapping.upsert({
+    where: {
+      provider_providerReleaseId: {
+        provider: input.provider,
+        providerReleaseId: input.providerReleaseId,
+      },
+    },
+    update: {
+      releaseId: input.releaseId,
+      url: input.url,
+      rawJson: input.rawJson ?? undefined,
+      source: ProviderMappingSource.AUTOMATIC,
+    },
+    create: {
+      releaseId: input.releaseId,
+      provider: input.provider,
+      providerReleaseId: input.providerReleaseId,
+      url: input.url,
+      rawJson: input.rawJson ?? undefined,
+      source: ProviderMappingSource.AUTOMATIC,
+    },
+  });
+}
 
 export class SyncCancellationError extends Error {
   constructor(message = "Sync cancelled by operator") {
@@ -441,25 +575,12 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
   }
 
   if (artistResult.sourceProvider && artistResult.providerArtistId) {
-    await prisma.artistProviderMapping.upsert({
-      where: {
-        provider_providerArtistId: {
-          provider: artistResult.sourceProvider,
-          providerArtistId: artistResult.providerArtistId,
-        },
-      },
-      update: {
-        artistId: artist.id,
-        url: artistResult.providerUrl,
-        rawJson: artistResult.raw ?? undefined,
-      },
-      create: {
-        artistId: artist.id,
-        provider: artistResult.sourceProvider,
-        providerArtistId: artistResult.providerArtistId,
-        url: artistResult.providerUrl,
-        rawJson: artistResult.raw ?? undefined,
-      },
+    await upsertAutomaticArtistProviderMapping({
+      artistId: artist.id,
+      provider: artistResult.sourceProvider,
+      providerArtistId: artistResult.providerArtistId,
+      url: artistResult.providerUrl ?? null,
+      rawJson: artistResult.raw,
     });
   }
 
@@ -714,20 +835,11 @@ async function enrichReleasePlatformMappings(
       : [];
 
   for (const mapping of mbMappings) {
-    await prisma.releaseProviderMapping.upsert({
-      where: {
-        provider_providerReleaseId: {
-          provider: mapping.provider,
-          providerReleaseId: mapping.providerReleaseId,
-        },
-      },
-      update: { releaseId, url: mapping.url },
-      create: {
-        releaseId,
-        provider: mapping.provider,
-        providerReleaseId: mapping.providerReleaseId,
-        url: mapping.url,
-      },
+    await upsertAutomaticReleaseProviderMapping({
+      releaseId,
+      provider: mapping.provider,
+      providerReleaseId: mapping.providerReleaseId,
+      url: mapping.url,
     });
   }
 }
@@ -812,20 +924,11 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
 
     for (const mapping of enrichedMappings) {
       await throwIfSyncCancelled(queueJobId);
-      await prisma.artistProviderMapping.upsert({
-        where: {
-          provider_providerArtistId: {
-            provider: mapping.provider,
-            providerArtistId: mapping.providerArtistId,
-          },
-        },
-        update: { artistId, url: mapping.url },
-        create: {
-          artistId,
-          provider: mapping.provider,
-          providerArtistId: mapping.providerArtistId,
-          url: mapping.url,
-        },
+      await upsertAutomaticArtistProviderMapping({
+        artistId,
+        provider: mapping.provider,
+        providerArtistId: mapping.providerArtistId,
+        url: mapping.url,
       });
     }
 
@@ -914,6 +1017,8 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
         ? prisma.releaseProviderMapping.findMany({
             where: {
               provider: Provider.DEEZER,
+              source: { not: ProviderMappingSource.MANUAL },
+              manuallyCorrectedAt: null,
               providerReleaseId: {
                 in: deezerReleaseIds,
               },
@@ -999,25 +1104,12 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
         });
 
         if (release.deezerProviderReleaseId) {
-          await prisma.releaseProviderMapping.upsert({
-            where: {
-              provider_providerReleaseId: {
-                provider: Provider.DEEZER,
-                providerReleaseId: release.deezerProviderReleaseId,
-              },
-            },
-            update: {
-              releaseId: existingRelease.id,
-              url: release.deezerUrl,
-              rawJson: release.deezerRaw ?? undefined,
-            },
-            create: {
-              releaseId: existingRelease.id,
-              provider: Provider.DEEZER,
-              providerReleaseId: release.deezerProviderReleaseId,
-              url: release.deezerUrl,
-              rawJson: release.deezerRaw ?? undefined,
-            },
+          await upsertAutomaticReleaseProviderMapping({
+            releaseId: existingRelease.id,
+            provider: Provider.DEEZER,
+            providerReleaseId: release.deezerProviderReleaseId,
+            url: release.deezerUrl,
+            rawJson: release.deezerRaw,
           });
         }
 

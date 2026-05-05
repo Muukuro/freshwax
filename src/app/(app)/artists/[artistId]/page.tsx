@@ -8,6 +8,7 @@ import {
 import { Artwork } from "@/components/artwork";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
+import { ProviderMappingCorrectionPanel } from "@/components/provider-mapping-correction-panel";
 import { ReleaseCard } from "@/components/release-card";
 import { SubmitButton } from "@/components/submit-button";
 import { initialsForName } from "@/lib/artwork";
@@ -92,6 +93,12 @@ export default async function ArtistDetailPage({
           </form>
         </div>
       </section>
+
+      <ProviderMappingCorrectionPanel
+        mappings={detail.artist.mappings}
+        target="artist"
+        targetId={detail.artist.artistId}
+      />
 
       <section className="space-y-4">
         <div className="section-bar">

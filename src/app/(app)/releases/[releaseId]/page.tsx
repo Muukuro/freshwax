@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/empty-state";
+import { ProviderMappingCorrectionPanel } from "@/components/provider-mapping-correction-panel";
 import { ReleaseCard } from "@/components/release-card";
 import { requireUser } from "@/lib/auth";
 import { artistPath } from "@/lib/deeplinks";
@@ -52,6 +53,12 @@ export default async function ReleaseDetailPage({
       ) : null}
 
       <ReleaseCard isAboveFold release={release} showDiscoveredAt timeZone={timeZone} />
+
+      <ProviderMappingCorrectionPanel
+        mappings={release.mappings}
+        target="release"
+        targetId={release.id}
+      />
     </div>
   );
 }

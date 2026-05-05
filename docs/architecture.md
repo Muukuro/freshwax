@@ -22,7 +22,11 @@
 - External import sources are optional and additive: a Last.fm username and/or streaming-platform account can be linked per local user, but they do not replace local sessions.
 - Canonical artist and release records are separated from provider mappings so the app can tolerate imperfect cross-provider linkage.
 - Canonical artist records require the MusicBrainz artist ID as a dedicated field instead of overloading internal primary keys, which keeps provider imports anchored to a stable canonical identity.
-- The "hide classical composer appearances" setting is based on stored Wikidata artist classification plus MusicBrainz release-group artist credits when available, with Deezer classical track attribution retained as a fallback.
+- Provider mappings can be corrected manually from artist and release detail pages. These corrections are global catalog state for the self-hosted instance, but they only repair exact external links; MusicBrainz remains the canonical identity layer.
+- Automatic MusicBrainz, Wikidata, and Deezer enrichment may add missing provider mappings, but it must not overwrite manually corrected mappings for the same catalog item and provider.
+- The "hide classical composer appearances" setting targets composer appearances, not all classical releases: Wikidata classifies whether the followed artist is a classical composer, while MusicBrainz recording-to-work relationships reached through a representative release should determine whether that artist appears only as composer or work creator on a specific release.
+- Composer-appearance classification is stored on the release/artist association during sync so feeds, calendar output, and notifications share one persisted interpretation instead of recalculating provider-specific raw metadata at read time.
+- A release remains visible when the followed classical composer is credited as a performer, conductor, ensemble member, or primary release artist anywhere on the release; composer-only classification applies only when no non-composer role is present.
 - Per-user platform behavior is modeled in `UserPlatformPreference` so import eligibility and visible links can vary by user without mutating canonical artist/release records.
 - Timezone remains per-user state, seeded from an instance default resolved as `DEFAULT_TIMEZONE`, then `TZ`, then `UTC`, so feeds and timestamps respect each account without requiring an admin settings surface.
 - Discovery is modeled per user via `DiscoveryEvent`, but the main feed is framed around recent releases; discovery events now act as attribution for late finds instead of deciding whether a release belongs in the recent feed.
@@ -40,7 +44,9 @@
 ## Known limitations
 
 - Deezer metadata quality varies; it is treated as optional enrichment sourced from canonical mappings rather than a prerequisite for identity or release sync.
-- Classical composer hiding is intentionally conservative and depends on the external catalog having enough structured data to distinguish composer credits from performer credits.
+- Manual provider mappings are intentionally narrow: they fix exact artist or release links, but they do not edit canonical names, dates, release types, or artist/release ownership.
+- Classical composer hiding is intentionally conservative and depends on MusicBrainz having enough release-specific relationship data to distinguish composer/work-creator appearances from performer, ensemble, or conductor releases.
+- If MusicBrainz lacks enough recording/work relationship data to prove a composer-only appearance, Freshwax keeps the release visible.
 - Import sources are best-effort, but they now only create followed artists after resolving a canonical MusicBrainz identity.
 - MusicBrainz request pacing is per Node.js process. Operators running multiple app or worker replicas behind one source IP should keep aggregate concurrency low enough to stay within MusicBrainz's source-IP guidance.
 - Only a subset of external login providers are fully implemented in this pass; unsupported providers still render as gated capabilities in onboarding and settings.
