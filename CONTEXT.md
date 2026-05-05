@@ -24,7 +24,7 @@ _Avoid_: Feed category, alert category
 A persistent user setting that controls which release types appear in feeds, calendar output, and notifications by default.
 _Avoid_: Import setting, sync scope
 
-**Listening Filter**:
+**View Filter**:
 A temporary on-page filter for changing which **Recent Releases** are visible without changing persistent preferences.
 _Avoid_: Account setting, import filter
 
@@ -44,7 +44,7 @@ _Avoid_: Generic platform link, equal link list
 
 - A **Release** belongs in feeds only when its release type passes the user's filters.
 - A **Release-Type Preference** defines the default scope for **Recent Releases**.
-- A **Listening Filter** can narrow or broaden visible **Recent Releases**, including **Ignored Releases**, without changing persistent user settings.
+- A **View Filter** can narrow or broaden visible **Recent Releases**, including **Ignored Releases**, without changing persistent user settings.
 - A **Recent Release** may have **Discovery Attribution** when Freshwax found it after release day.
 - An **Upcoming Release** becomes a **Recent Release** on release day.
 - A **Calendar Feed** includes both **Recent Releases** and **Upcoming Releases** within their date windows.
@@ -61,5 +61,5 @@ _Avoid_: Generic platform link, equal link list
 - "Discoveries" is retired as a user-facing route or navigation label; use **Recent Releases** for the primary recency-oriented surface.
 - "album" was used casually for the listening target, but the domain concept is **Release** because singles and EPs can be included by user settings.
 - Release-type settings were suspected to control import scope, but they are **Release-Type Preferences**: persistent visibility defaults, not sync/import limits.
-- **Listening Filters** expose release types as independent toggles; albums and EPs must not be grouped into one control.
+- **View Filters** expose release types as independent toggles; albums and EPs must not be grouped into one control.
 - Recent-first product decisions belong in both `CONTEXT.md` for language and `docs/architecture.md` for product/architecture alignment.

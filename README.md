@@ -26,7 +26,7 @@ Each user gets their own followed artists, recent-release feed, ignore state, no
 
 - Artist search backed by MusicBrainz, with Deezer used as a public fallback/enrichment source
 - Per-user follows, recent-release feed, and ignore state
-- Recent-first listening workflow with a separate upcoming-release planning view
+- Recent-first release browsing with a separate upcoming-release planning view
 - Private `.ics` feed per user, exposed at `/calendar/:token.ics`
 - Optional browser push notifications and signed webhook delivery
 - Optional Last.fm import to seed a watchlist from listening history

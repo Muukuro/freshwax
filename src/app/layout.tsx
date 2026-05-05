@@ -16,7 +16,7 @@ const ibmPlexSans = IBM_Plex_Sans({
 
 export const metadata: Metadata = {
   title: "Freshwax",
-  description: "Freshwax is a self-hosted release tracker for Deezer-first listening workflows.",
+  description: "Freshwax is a self-hosted release tracker for music watchlists.",
 };
 
 export default function RootLayout({

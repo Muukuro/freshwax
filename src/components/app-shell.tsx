@@ -38,7 +38,7 @@ export function AppShell({
                   Freshwax
                 </p>
                 <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-                  A calm desk for recent listens, future releases, and the artists you follow.
+                  A calm desk for fresh releases, future dates, and the artists you follow.
                 </p>
               </div>
 

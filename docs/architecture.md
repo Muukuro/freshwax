@@ -25,7 +25,7 @@
 - Per-user platform behavior is modeled in `UserPlatformPreference` so import eligibility and visible links can vary by user without mutating canonical artist/release records.
 - Timezone remains per-user state, seeded from an instance default resolved as `DEFAULT_TIMEZONE`, then `TZ`, then `UTC`, so feeds and timestamps respect each account without requiring an admin settings surface.
 - Discovery is modeled per user via `DiscoveryEvent`, but the main feed is framed around recent releases; discovery events now act as attribution for late finds instead of deciding whether a release belongs in the recent feed.
-- The primary listening surface is `/recent`; it includes release-day items and supports URL-only temporary listening filters that can broaden or narrow release types and ignored visibility without changing persistent settings.
+- The primary recent-release surface is `/recent`; it includes release-day items and supports URL-only temporary view filters that can broaden or narrow release types and ignored visibility without changing persistent settings.
 - Upcoming releases are a planning surface for future-dated releases only, starting after the user's local release day.
 - Release-type settings are persistent visibility defaults for feeds, calendar output, and notifications; they do not limit canonical release sync/import scope.
 - Ignoring a release is per-user and does not mutate the shared canonical release record.

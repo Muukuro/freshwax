@@ -166,7 +166,7 @@ export default async function RecentPage({
       <section className="panel recent-filter-panel">
         <div className="panel-heading">
           <div className="panel-heading__body">
-            <p className="eyebrow">Listening filters</p>
+            <p className="eyebrow">View filters</p>
             <h2 className="panel-heading__title">Temporary view</h2>
             <p className="panel-heading__text">
               These controls only affect this page. Settings still control defaults, calendar output, and notifications.
@@ -242,7 +242,7 @@ export default async function RecentPage({
               Your default recent view has {data.defaultRecentReleasesCount} releases.
             </p>
             <p className="mt-2 text-sm leading-7 text-[var(--muted)]">
-              Follow more artists or import from a connected source to make this listening surface fuller.
+              Follow more artists or import from a connected source to make this recent view fuller.
             </p>
           </div>
           <Link className="ghost-button" href="/artists">
