@@ -576,6 +576,9 @@ input {
 
 .release-art {
   border: 1px solid var(--surface-muted-border);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     0 10px 24px rgba(0, 0, 0, 0.12);
