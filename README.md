@@ -29,6 +29,7 @@ Each user gets their own followed artists, recent-release feed, ignore state, no
 - Recent-first release browsing with a separate upcoming-release planning view
 - Private `.ics` feed per user, exposed at `/calendar/:token.ics`
 - Optional browser push notifications and signed webhook delivery
+- Installable PWA shell with app manifest, home-screen icons, and an offline fallback page
 - Optional Last.fm import to seed a watchlist from listening history
 - Optional external login and account-link flows for supported providers
 - Background sync worker with lazy queue setup so app builds do not connect to Redis during import
@@ -148,6 +149,7 @@ These enable optional login, linking, or import flows. Core release tracking doe
 - `docker compose up` runs schema bootstrapping with `prisma db push` before app and worker startup
 - Queue setup is intentionally lazy so `next build` does not create Redis connections at import time
 - The public calendar URL shape remains `/calendar/:token.ics`, backed by a rewrite to the App Router route
+- PWA support is served from the app itself: `/manifest.webmanifest`, generated app icons, and `/push-sw.js`. Browser push subscriptions and offline caching intentionally share that service worker URL.
 
 ## Architecture
 

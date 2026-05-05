@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { CalendarClock, Disc3, LayoutDashboard, Menu, Search, Settings, X } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { SubmitButton } from "@/components/submit-button";
 
 const navItems = [
@@ -67,6 +68,9 @@ export function AppShell({
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
                 Your watchlist, filters, and calendar feed stay private to this instance.
               </p>
+              <div className="mt-4">
+                <PwaInstallPrompt />
+              </div>
               <form action={signOut} className="mt-4">
                 <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">
                   Sign out
@@ -120,6 +124,9 @@ export function AppShell({
                 <div className="panel-muted mt-3 p-4">
                   <p className="eyebrow">Signed in</p>
                   <p className="mt-2 text-base font-semibold text-[var(--text)]">{userName}</p>
+                  <div className="mt-4">
+                    <PwaInstallPrompt />
+                  </div>
                   <form action={signOut} className="mt-4">
                     <SubmitButton className="ghost-button w-full" pendingLabel="Leaving...">
                       Sign out

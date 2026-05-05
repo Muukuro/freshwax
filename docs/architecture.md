@@ -12,6 +12,7 @@
 - Optional external login/account-link adapters per provider.
 - Provider-generated outbound links filtered by per-user platform preferences.
 - Browser push plus optional operator webhook delivery for notification events.
+- PWA install metadata, generated app icons, and offline navigation fallback served by the Next.js app and the shared public service worker.
 
 ## Main decisions
 
@@ -34,6 +35,7 @@
 - Full-catalog sync is app-driven: the worker maintains recurring scheduling, and authenticated app visits opportunistically enqueue a global sync when the watchlist is stale so the dashboard does not rely on a manual button.
 - Recurring sync includes startup jitter so self-hosted instances do not all wake up on the same exact interval boundary.
 - First-run onboarding is explicit: new users choose favorite platforms, default release visibility, and link behavior before they land in the main app shell.
+- The browser service worker remains at `/push-sw.js` so existing push subscription setup and app-wide PWA caching use one stable registration scope. It excludes API routes and private calendar feed URLs from runtime caching.
 
 ## Known limitations
 
@@ -45,3 +47,4 @@
 - TIDAL external login and account linking are implemented with OAuth 2.1 + PKCE and currently assume the TIDAL app has `user.read`, `collection.read`, and `collection.write` enabled.
 - Apple Music, Amazon Music, and YouTube Music still provide incomplete account-link/import coverage compared with the preference model exposed in the UI.
 - Webhook delivery is generic JSON rather than a Discord-native or ntfy-native formatter.
+- Offline PWA behavior is limited to previously cached pages and static assets; live release data, mutations, sync status, and private calendar feeds still require the network.

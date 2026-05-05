@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
+
+import { PwaRegistration } from "@/components/pwa-registration";
 
 import "./globals.css";
 
@@ -15,8 +17,24 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Freshwax",
   title: "Freshwax",
   description: "Freshwax is a self-hosted release tracker for music watchlists.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Freshwax",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#e8edf3" },
+    { media: "(prefers-color-scheme: dark)", color: "#08111b" },
+  ],
 };
 
 export default function RootLayout({
@@ -26,7 +44,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${ibmPlexSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        <PwaRegistration />
+        {children}
+      </body>
     </html>
   );
 }
