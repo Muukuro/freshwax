@@ -255,6 +255,36 @@ function addArtistPlatformLinks(
   };
 }
 
+function buildFollowedReleaseArtistFilter(userId: string): Prisma.ReleaseArtistWhereInput {
+  return {
+    artist: {
+      followers: {
+        some: { userId },
+      },
+    },
+  };
+}
+
+function buildVisibleFollowedReleaseFilter(
+  userId: string,
+  settings: {
+    hideClassicalComposerAppearances?: boolean;
+  },
+): Prisma.ReleaseWhereInput {
+  const followedArtistFilter = buildFollowedReleaseArtistFilter(userId);
+
+  return {
+    artists: {
+      some: settings.hideClassicalComposerAppearances
+        ? {
+            ...followedArtistFilter,
+            role: { not: RELEASE_ARTIST_ROLE.COMPOSER_APPEARANCE },
+          }
+        : followedArtistFilter,
+    },
+  };
+}
+
 export async function getDashboardData(userId: string) {
   const [settings, preferences, user] = await Promise.all([
     prisma.userSettings.findUniqueOrThrow({
@@ -271,30 +301,26 @@ export async function getDashboardData(userId: string) {
   const tomorrow = getDateOffsetUtcDateForTimeZone(timeZone, 1);
   const discoveryCutoff = getDateOffsetUtcDateForTimeZone(timeZone, -settings.discoveryWindowDays);
   const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings.futureHorizonDays);
+  const upcomingWhere = {
+    releaseDate: {
+      gte: tomorrow,
+      lte: horizon,
+    },
+    type: buildReleaseTypeFilter(settings),
+    ...buildVisibleFollowedReleaseFilter(userId, settings),
+    ignoredBy: settings.hideIgnored ? { none: { userId } } : undefined,
+  } satisfies Prisma.ReleaseWhereInput;
 
-  const [followedArtistsCount, upcoming, recentReleases] = await Promise.all([
+  const [followedArtistsCount, upcomingReleasesCount, upcoming, recentReleases] = await Promise.all([
     prisma.userFollow.count({ where: { userId } }),
+    prisma.release.count({
+      where: upcomingWhere,
+    }),
     prisma.release.findMany({
-      where: {
-        releaseDate: {
-          gte: tomorrow,
-          lte: horizon,
-        },
-        type: buildReleaseTypeFilter(settings),
-        artists: {
-          some: {
-            artist: {
-              followers: {
-                some: { userId },
-              },
-            },
-          },
-        },
-        ignoredBy: settings.hideIgnored ? { none: { userId } } : undefined,
-      },
+      where: upcomingWhere,
       include: releaseInclude(userId),
       orderBy: [{ releaseDate: "asc" }, { title: "asc" }],
-      take: 24,
+      take: 6,
     }),
     prisma.release.findMany({
       where: {
@@ -330,6 +356,7 @@ export async function getDashboardData(userId: string) {
     settings,
     preferences,
     followedArtistsCount,
+    upcomingReleasesCount,
     upcoming: filteredUpcoming,
     recentReleasesCount,
     recent,

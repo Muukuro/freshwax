@@ -20,7 +20,7 @@ export default async function DashboardPage() {
           <p className="eyebrow">Dashboard</p>
           <h1 className="dashboard-command__title">Release desk</h1>
           <p className="dashboard-command__body">
-            {data.recentReleasesCount} recent, {data.upcoming.length} upcoming,{" "}
+            {data.recentReleasesCount} recent, {data.upcomingReleasesCount} upcoming,{" "}
             {data.followedArtistsCount} followed artists.
           </p>
         </div>
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
         />
         <StatsCard
           label="Upcoming releases"
-          value={String(data.upcoming.length)}
+          value={String(data.upcomingReleasesCount)}
           detail={`Within your ${data.settings.futureHorizonDays}-day calendar horizon.`}
           icon={CalendarDays}
         />
