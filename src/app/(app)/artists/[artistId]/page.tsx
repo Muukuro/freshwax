@@ -36,9 +36,11 @@ export default async function ArtistDetailPage({
           alt={`${detail.artist.canonicalName} artist image`}
           className="artist-masthead__art text-xl font-semibold text-[var(--text)]"
           fallback={initialsForName(detail.artist.canonicalName)}
+          height={96}
           isAboveFold
           sizes="96px"
           src={detail.artist.imageUrl}
+          width={96}
         />
 
         <div className="artist-masthead__content">
@@ -104,8 +106,13 @@ export default async function ArtistDetailPage({
             body="This artist has no releases matching your current filters yet."
           />
         ) : (
-          detail.releases.map((release) => (
-            <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
+          detail.releases.map((release, index) => (
+            <ReleaseCard
+              isAboveFold={index === 0}
+              key={release.id}
+              release={release}
+              timeZone={timeZone}
+            />
           ))
         )}
       </section>

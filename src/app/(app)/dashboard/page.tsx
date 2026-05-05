@@ -80,8 +80,9 @@ export default async function DashboardPage() {
               body="Freshwax keeps this feed focused on releases that are ready to play from artists you follow."
             />
           ) : (
-            data.recent.map((release) => (
+            data.recent.map((release, index) => (
               <ReleaseCard
+                isAboveFold={index === 0}
                 key={release.id}
                 release={release}
                 showDiscoveredAt
@@ -108,8 +109,13 @@ export default async function DashboardPage() {
               body="Follow a few artists from the search page and the worker will start filling this board with future release dates."
             />
           ) : (
-            data.upcoming.map((release) => (
-              <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
+            data.upcoming.map((release, index) => (
+              <ReleaseCard
+                isAboveFold={data.recent.length === 0 && index === 0}
+                key={release.id}
+                release={release}
+                timeZone={timeZone}
+              />
             ))
           )}
         </div>

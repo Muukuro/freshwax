@@ -6,6 +6,7 @@ import { PwaRegistration } from "@/components/pwa-registration";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
+  preload: false,
   variable: "--font-display",
   subsets: ["latin"],
 });

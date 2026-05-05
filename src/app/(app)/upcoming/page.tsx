@@ -41,8 +41,13 @@ export default async function UpcomingPage() {
           body="Either your followed artists do not have future release dates in the current catalog sources yet, or your filters are excluding them."
         />
       ) : (
-        releases.map((release) => (
-          <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
+        releases.map((release, index) => (
+          <ReleaseCard
+            isAboveFold={index === 0}
+            key={release.id}
+            release={release}
+            timeZone={timeZone}
+          />
         ))
       )}
     </div>

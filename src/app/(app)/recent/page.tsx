@@ -242,7 +242,7 @@ export default async function RecentPage({
           body="Try broadening the temporary filters, showing ignored releases, or following more artists."
         />
       ) : (
-        groups.map((group) => (
+        groups.map((group, groupIndex) => (
           <section className="recent-date-group" key={group.key}>
             <div className="section-bar">
               <div>
@@ -251,8 +251,9 @@ export default async function RecentPage({
               </div>
             </div>
             <div className="recent-date-group__list">
-              {group.releases.map((release) => (
+              {group.releases.map((release, releaseIndex) => (
                 <ReleaseCard
+                  isAboveFold={groupIndex === 0 && releaseIndex === 0}
                   key={release.id}
                   release={release}
                   showDiscoveredAt

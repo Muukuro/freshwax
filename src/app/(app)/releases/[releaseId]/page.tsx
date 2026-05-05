@@ -51,7 +51,7 @@ export default async function ReleaseDetailPage({
         />
       ) : null}
 
-      <ReleaseCard release={release} showDiscoveredAt timeZone={timeZone} />
+      <ReleaseCard isAboveFold release={release} showDiscoveredAt timeZone={timeZone} />
     </div>
   );
 }

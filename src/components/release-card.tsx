@@ -22,10 +22,12 @@ type ReleaseWithArtists = Release & {
 };
 
 export function ReleaseCard({
+  isAboveFold = false,
   release,
   showDiscoveredAt = false,
   timeZone,
 }: {
+  isAboveFold?: boolean;
   release: ReleaseWithArtists;
   showDiscoveredAt?: boolean;
   timeZone: string;
@@ -43,6 +45,7 @@ export function ReleaseCard({
         <Artwork
           alt={`${release.title} cover art`}
           className="release-card__art shrink-0"
+          isAboveFold={isAboveFold}
           sizes="72px"
           src={release.coverUrl}
         />
