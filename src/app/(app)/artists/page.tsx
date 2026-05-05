@@ -6,6 +6,7 @@ import {
   importDeezerFollowsAction,
   importLastfmArtistsAction,
 } from "@/app/actions/follows";
+import { Artwork, initialsForName } from "@/components/artwork";
 import { ArtistWatchlist } from "@/components/artist-watchlist";
 import { EmptyState } from "@/components/empty-state";
 import { ImportForm } from "@/components/import-form";
@@ -18,14 +19,6 @@ import { isLastfmConfigured } from "@/lib/providers/lastfm";
 import { formatTimestampInTimeZone } from "@/lib/timezone";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
 import { normalizeName } from "@/lib/utils";
-
-function initialsForArtist(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export default async function ArtistsPage({
   searchParams,
@@ -120,16 +113,13 @@ export default async function ArtistsPage({
                   key={artist.catalogArtistId}
                   className="panel flex items-center gap-4 px-4 py-4"
                 >
-                  <div
-                    className="release-art release-art--fallback flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
-                    style={
-                      artist.imageUrl
-                        ? { backgroundImage: `url(${artist.imageUrl})` }
-                        : undefined
-                    }
-                  >
-                    {artist.imageUrl ? null : initialsForArtist(artist.name)}
-                  </div>
+                  <Artwork
+                    alt={`${artist.name} artist image`}
+                    className="h-14 w-14 shrink-0 rounded-[1rem] text-sm font-semibold text-[var(--text)]"
+                    fallback={initialsForName(artist.name)}
+                    sizes="56px"
+                    src={artist.imageUrl}
+                  />
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-base font-semibold text-[var(--text)]">
                       {artist.name}

@@ -5,6 +5,7 @@ import { Headphones, RefreshCw, Search, UserMinus } from "lucide-react";
 import Link from "next/link";
 
 import { syncFollowedArtistNowAction, unfollowArtistAction } from "@/app/actions/follows";
+import { Artwork, initialsForName } from "@/components/artwork";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
@@ -26,14 +27,6 @@ type ArtistWatchlistEntry = {
     releaseDate: string;
   } | null;
 };
-
-function initialsForArtist(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export function ArtistWatchlist({
   followed,
@@ -82,16 +75,13 @@ export function ArtistWatchlist({
           {visibleFollowed.map((follow) => (
             <article key={follow.artistId} className="panel flex min-h-0 flex-col gap-4 p-[1.1rem]">
               <div className="flex items-start gap-3">
-                <div
-                  className="release-art release-art--fallback flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] bg-cover bg-center text-sm font-semibold text-[var(--text)]"
-                  style={
-                    follow.imageUrl
-                      ? { backgroundImage: `url(${follow.imageUrl})` }
-                      : undefined
-                  }
-                >
-                  {follow.imageUrl ? null : initialsForArtist(follow.canonicalName)}
-                </div>
+                <Artwork
+                  alt={`${follow.canonicalName} artist image`}
+                  className="h-14 w-14 shrink-0 rounded-[1rem] text-sm font-semibold text-[var(--text)]"
+                  fallback={initialsForName(follow.canonicalName)}
+                  sizes="56px"
+                  src={follow.imageUrl}
+                />
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[var(--text)]">
                     <Link href={artistPath(follow.artistId)}>{follow.canonicalName}</Link>

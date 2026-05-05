@@ -593,6 +593,18 @@ input {
   background-size: cover;
 }
 
+.artwork {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.artwork__image {
+  object-fit: cover;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

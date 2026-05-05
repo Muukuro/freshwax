@@ -5,6 +5,7 @@ import {
   syncFollowedArtistNowAction,
   unfollowArtistAction,
 } from "@/app/actions/follows";
+import { Artwork, initialsForName } from "@/components/artwork";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { ReleaseCard } from "@/components/release-card";
@@ -13,14 +14,6 @@ import { requireUser } from "@/lib/auth";
 import { getArtistDetail } from "@/lib/data";
 import { formatInteger, formatTimestampInTimeZone } from "@/lib/timezone";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
-
-function initialsForArtist(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 export default async function ArtistDetailPage({
   params,
@@ -38,16 +31,13 @@ export default async function ArtistDetailPage({
   return (
     <div className="page-stack">
       <section className="panel flex flex-col gap-5 p-5 md:flex-row md:items-center">
-        <div
-          className="release-art release-art--fallback flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-[1.75rem] bg-cover bg-center text-xl font-semibold text-[var(--text)]"
-          style={
-            detail.artist.imageUrl
-              ? { backgroundImage: `url(${detail.artist.imageUrl})` }
-              : undefined
-          }
-        >
-          {detail.artist.imageUrl ? null : initialsForArtist(detail.artist.canonicalName)}
-        </div>
+        <Artwork
+          alt={`${detail.artist.canonicalName} artist image`}
+          className="h-24 w-24 shrink-0 rounded-[1.75rem] text-xl font-semibold text-[var(--text)]"
+          fallback={initialsForName(detail.artist.canonicalName)}
+          sizes="96px"
+          src={detail.artist.imageUrl}
+        />
 
         <div className="min-w-0 flex-1">
           <p className="eyebrow">Artist deeplink</p>

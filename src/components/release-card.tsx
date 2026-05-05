@@ -6,6 +6,7 @@ import {
   ignoreReleaseAction,
   unignoreReleaseAction,
 } from "@/app/actions/follows";
+import { Artwork } from "@/components/artwork";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
@@ -38,9 +39,11 @@ export function ReleaseCard({
   return (
     <article className="panel release-card overflow-hidden">
       <div className="release-card__grid">
-        <div
-          className="release-art release-art--fallback release-card__art shrink-0 bg-cover bg-center"
-          style={release.coverUrl ? { backgroundImage: `url(${release.coverUrl})` } : undefined}
+        <Artwork
+          alt={`${release.title} cover art`}
+          className="release-card__art shrink-0"
+          sizes="72px"
+          src={release.coverUrl}
         />
         <div className="release-card__meta">
           <div className="release-card__topline">
