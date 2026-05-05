@@ -588,6 +588,9 @@ input {
   background:
     linear-gradient(135deg, rgba(45, 109, 246, 0.24), rgba(15, 28, 43, 0.08)),
     var(--surface-muted);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .status-pill {
