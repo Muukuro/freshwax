@@ -179,8 +179,8 @@ npm run prisma:seed
 
 ## Documentation
 
-- Setup and operator details: [docs/setup.md](/Users/robbert/tools/freshwax/docs/setup.md)
-- Architecture notes: [docs/architecture.md](/Users/robbert/tools/freshwax/docs/architecture.md)
+- Setup and operator details: [docs/setup.md](docs/setup.md)
+- Architecture notes: [docs/architecture.md](docs/architecture.md)
 
 ## Current Scope and Limitations
 
@@ -193,4 +193,5 @@ npm run prisma:seed
 
 ## License
 
-No license file is currently included in this repository.
+Freshwax is licensed under the GNU Affero General Public License v3.0 or later.
+See [LICENSE](LICENSE).
