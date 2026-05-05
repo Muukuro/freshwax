@@ -18,8 +18,6 @@ export const PRIMARY_RECENT_RELEASE_TYPES = [
   ReleaseType.SINGLE,
 ] as const;
 
-export const MORE_RECENT_RELEASE_TYPES = [ReleaseType.UNKNOWN] as const;
-
 export function buildReleaseTypeFilter(settings: {
   includeSingles: boolean;
   includeEps: boolean;

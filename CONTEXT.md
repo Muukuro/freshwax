@@ -61,5 +61,5 @@ _Avoid_: Generic platform link, equal link list
 - "Discoveries" is retired as a user-facing route or navigation label; use **Recent Releases** for the primary recency-oriented surface.
 - "album" was used casually for the listening target, but the domain concept is **Release** because singles and EPs can be included by user settings.
 - Release-type settings were suspected to control import scope, but they are **Release-Type Preferences**: persistent visibility defaults, not sync/import limits.
-- **View Filters** expose release types as independent toggles; albums and EPs must not be grouped into one control.
+- **View Filters** expose user-facing release formats as independent toggles; albums and EPs must not be grouped into one control, and provider-metadata fallbacks like unknown type should not be presented as a normal filter.
 - Recent-first product decisions belong in both `CONTEXT.md` for language and `docs/architecture.md` for product/architecture alignment.

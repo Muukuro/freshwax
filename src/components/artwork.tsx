@@ -27,24 +27,18 @@ function safeImageSrc(src: string | null | undefined) {
   }
 }
 
-export function initialsForName(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
 export function Artwork({
   alt,
   className,
   fallback,
+  isAboveFold = false,
   sizes,
   src,
 }: {
   alt: string;
   className?: string;
   fallback?: ReactNode;
+  isAboveFold?: boolean;
   sizes: string;
   src: string | null | undefined;
 }) {
@@ -59,6 +53,7 @@ export function Artwork({
           alt={alt}
           className="artwork__image"
           fill
+          loading={isAboveFold ? "eager" : "lazy"}
           onError={() => setFailedSrc(imageSrc)}
           sizes={sizes}
           src={imageSrc}

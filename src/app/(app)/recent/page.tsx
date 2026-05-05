@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
 import { requireUser } from "@/lib/auth";
 import {
-  MORE_RECENT_RELEASE_TYPES,
   PRIMARY_RECENT_RELEASE_TYPES,
   getRecentReleasesPageData,
 } from "@/lib/data";
@@ -19,10 +18,7 @@ type RecentSearchParams = Promise<{
   ignored?: string | string[];
 }>;
 
-const FILTERABLE_TYPES = [
-  ...PRIMARY_RECENT_RELEASE_TYPES,
-  ...MORE_RECENT_RELEASE_TYPES,
-];
+const FILTERABLE_TYPES = [...PRIMARY_RECENT_RELEASE_TYPES];
 type FilterableReleaseType = (typeof FILTERABLE_TYPES)[number];
 
 function parseTypeValue(value: string) {
@@ -163,24 +159,19 @@ export default async function RecentPage({
         </Link>
       </div>
 
-      <section className="panel recent-filter-panel">
-        <div className="panel-heading">
-          <div className="panel-heading__body">
+      <details className="panel recent-filter-panel" open={usingTemporaryFilters}>
+        <summary className="recent-filter-summary">
+          <div>
             <p className="eyebrow">View filters</p>
-            <h2 className="panel-heading__title">Temporary view</h2>
-            <p className="panel-heading__text">
-              These controls only affect this page. Settings still control defaults, calendar output, and notifications.
+            <p className="recent-filter-summary__title">Adjust this view</p>
+            <p className="recent-filter-summary__text">
+              Temporary filters for this page only.
             </p>
           </div>
-          {usingTemporaryFilters ? (
-            <Link className="ghost-button" href="/recent">
-              <RotateCcw className="h-4 w-4" />
-              Reset to defaults
-            </Link>
-          ) : null}
-        </div>
+          <SlidersHorizontal className="h-5 w-5" />
+        </summary>
 
-        <div className="recent-filter-groups">
+        <div className="recent-filter-content">
           <div>
             <p className="eyebrow">Format</p>
             <div className="filter-toggle-row">
@@ -202,22 +193,8 @@ export default async function RecentPage({
           </div>
 
           <div>
-            <p className="eyebrow">More</p>
+            <p className="eyebrow">Visibility</p>
             <div className="filter-toggle-row">
-              {MORE_RECENT_RELEASE_TYPES.map((type) => {
-                const selected = selectedFilterTypes.includes(type);
-
-                return (
-                  <Link
-                    aria-pressed={selected}
-                    className={`filter-toggle ${selected ? "filter-toggle--active" : ""}`}
-                    href={hrefForType(type)}
-                    key={type}
-                  >
-                    {toSentenceCase(releaseTypeLabel(type))}
-                  </Link>
-                );
-              })}
               <Link
                 aria-pressed={showIgnored}
                 className={`filter-toggle ${showIgnored ? "filter-toggle--active" : ""}`}
@@ -231,8 +208,15 @@ export default async function RecentPage({
               </Link>
             </div>
           </div>
+
+          {usingTemporaryFilters ? (
+            <Link className="ghost-button recent-filter-reset" href="/recent">
+              <RotateCcw className="h-4 w-4" />
+              Reset to defaults
+            </Link>
+          ) : null}
         </div>
-      </section>
+      </details>
 
       {sparseDefaultView ? (
         <section className="panel flex flex-wrap items-center justify-between gap-4">

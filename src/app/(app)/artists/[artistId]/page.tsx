@@ -5,11 +5,12 @@ import {
   syncFollowedArtistNowAction,
   unfollowArtistAction,
 } from "@/app/actions/follows";
-import { Artwork, initialsForName } from "@/components/artwork";
+import { Artwork } from "@/components/artwork";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { ReleaseCard } from "@/components/release-card";
 import { SubmitButton } from "@/components/submit-button";
+import { initialsForName } from "@/lib/artwork";
 import { requireUser } from "@/lib/auth";
 import { getArtistDetail } from "@/lib/data";
 import { formatInteger, formatTimestampInTimeZone } from "@/lib/timezone";
@@ -30,21 +31,22 @@ export default async function ArtistDetailPage({
 
   return (
     <div className="page-stack">
-      <section className="panel flex flex-col gap-5 p-5 md:flex-row md:items-center">
+      <section className="panel artist-masthead">
         <Artwork
           alt={`${detail.artist.canonicalName} artist image`}
-          className="h-24 w-24 shrink-0 rounded-[1.75rem] text-xl font-semibold text-[var(--text)]"
+          className="artist-masthead__art text-xl font-semibold text-[var(--text)]"
           fallback={initialsForName(detail.artist.canonicalName)}
+          isAboveFold
           sizes="96px"
           src={detail.artist.imageUrl}
         />
 
-        <div className="min-w-0 flex-1">
+        <div className="artist-masthead__content">
           <p className="eyebrow">Artist deeplink</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-[-0.04em] text-[var(--text)]">
+          <h1 className="artist-masthead__title">
             {detail.artist.canonicalName}
           </h1>
-          <div className="mt-3 flex flex-wrap gap-2 text-sm text-[var(--muted)]">
+          <div className="artist-masthead__meta">
             {detail.artist.deezerFans ? (
               <span className="status-pill">
                 <Headphones className="h-4 w-4" />
@@ -63,7 +65,7 @@ export default async function ArtistDetailPage({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 md:justify-end">
+        <div className="artist-masthead__actions">
           {detail.artist.platformLinks.map((link) => (
             <PlatformLink
               key={`${detail.artist.artistId}-${link.provider}`}

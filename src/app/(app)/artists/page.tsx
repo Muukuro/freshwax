@@ -6,12 +6,13 @@ import {
   importDeezerFollowsAction,
   importLastfmArtistsAction,
 } from "@/app/actions/follows";
-import { Artwork, initialsForName } from "@/components/artwork";
+import { Artwork } from "@/components/artwork";
 import { ArtistWatchlist } from "@/components/artist-watchlist";
 import { EmptyState } from "@/components/empty-state";
 import { ImportForm } from "@/components/import-form";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
+import { initialsForName } from "@/lib/artwork";
 import { requireUser } from "@/lib/auth";
 import { searchCatalogArtists } from "@/lib/catalog";
 import { getFollowedArtists } from "@/lib/data";

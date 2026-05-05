@@ -5,10 +5,11 @@ import { Headphones, RefreshCw, Search, UserMinus } from "lucide-react";
 import Link from "next/link";
 
 import { syncFollowedArtistNowAction, unfollowArtistAction } from "@/app/actions/follows";
-import { Artwork, initialsForName } from "@/components/artwork";
+import { Artwork } from "@/components/artwork";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
+import { initialsForName } from "@/lib/artwork";
 import { type PlatformLinkEntry } from "@/lib/data";
 import { artistPath } from "@/lib/deeplinks";
 import { formatInteger, formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";

@@ -25,10 +25,10 @@ export default async function ReleaseDetailPage({
     <div className="page-stack">
       <div className="page-intro">
         <div className="page-intro__content">
-          <p className="eyebrow">Release deeplink</p>
+          <p className="eyebrow">Release details</p>
           <h1 className="page-intro__title">{release.title}</h1>
           <p className="page-intro__body">
-            A stable in-app target for notifications, calendar events, and shared local bookmarks.
+            Follow this release across notifications, calendar events, and local bookmarks.
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-sm text-[var(--muted)]">
             {release.artists.map((entry) => (
