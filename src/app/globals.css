@@ -1040,6 +1040,88 @@ a[aria-disabled="true"]:hover {
   padding-top: 1rem;
 }
 
+.provider-mapping-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.provider-mapping-editor__summary {
+  display: inline-flex;
+  list-style: none;
+  cursor: pointer;
+}
+
+.provider-mapping-editor__summary::-webkit-details-marker {
+  display: none;
+}
+
+.provider-mapping-editor__content {
+  display: grid;
+  width: 100%;
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+  border: 1px solid var(--surface-muted-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+    var(--surface-muted);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.provider-mapping-editor__row {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.28fr) minmax(24rem, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 0.75rem;
+}
+
+.provider-mapping-editor__provider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.provider-mapping-editor__provider-copy {
+  min-width: 0;
+}
+
+.provider-mapping-editor__provider-copy p {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.provider-mapping-editor__provider-copy span {
+  display: block;
+  margin-top: 0.18rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-mapping-editor__form {
+  display: grid;
+  grid-template-columns: minmax(20rem, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.provider-mapping-editor__form .field {
+  gap: 0;
+}
+
+.provider-mapping-editor__remove {
+  min-height: 100%;
+}
+
 .filter-toggle-row {
   display: flex;
   flex-wrap: wrap;
@@ -1276,6 +1358,11 @@ textarea:focus-visible {
   .section-bar {
     align-items: start;
     flex-direction: column;
+  }
+
+  .provider-mapping-editor__row,
+  .provider-mapping-editor__form {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-command__actions {

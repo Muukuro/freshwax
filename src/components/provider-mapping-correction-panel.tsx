@@ -1,5 +1,5 @@
 import { Provider, ProviderMappingSource } from "@prisma/client";
-import { Link2, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import {
   removeArtistProviderMappingAction,
@@ -7,6 +7,7 @@ import {
   saveArtistProviderMappingAction,
   saveReleaseProviderMappingAction,
 } from "@/app/actions/provider-mappings";
+import { PlatformIcon } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { currentMappingValue } from "@/lib/provider-mapping-corrections";
 import { STREAMING_PROVIDERS, getProviderLabel } from "@/lib/platforms";
@@ -60,15 +61,15 @@ export function ProviderMappingCorrectionPanel(props: Props) {
   const targetField = props.target === "artist" ? "artistId" : "releaseId";
 
   return (
-    <section className="panel space-y-4">
-      <div className="section-bar">
-        <div>
-          <p className="eyebrow">Manual provider mappings</p>
-          <h2 className="section-bar__title">Correct exact catalog links</h2>
-        </div>
-      </div>
+    <details className="provider-mapping-editor">
+      <summary className="provider-mapping-editor__summary">
+        <span className="ghost-button">
+          <Pencil className="h-4 w-4" />
+          Edit provider links
+        </span>
+      </summary>
 
-      <div className="space-y-3">
+      <div className="provider-mapping-editor__content">
         {STREAMING_PROVIDERS.map((provider) => {
           const mapping = mappingByProvider.get(provider);
           const isManual = Boolean(
@@ -79,22 +80,22 @@ export function ProviderMappingCorrectionPanel(props: Props) {
 
           return (
             <div
-              className="grid gap-3 rounded-md border border-[var(--border)] bg-[color:rgb(255_255_255_/_0.03)] p-3 md:grid-cols-[10rem_1fr_auto]"
+              className="provider-mapping-editor__row"
               key={provider}
             >
-              <div className="flex min-w-0 items-center gap-2">
-                <Link2 className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--text)]">
-                    {getProviderLabel(provider)}
-                  </p>
-                  <p className="truncate text-xs text-[var(--muted)]">
-                    {mapping ? `${isManual ? "Manual" : "Automatic"}: ${mappingId(mapping)}` : "Search fallback"}
-                  </p>
+              <div className="provider-mapping-editor__provider">
+                <PlatformIcon provider={provider} />
+                <div className="provider-mapping-editor__provider-copy">
+                  <p>{getProviderLabel(provider)}</p>
+                  <span>
+                    {mapping
+                      ? `${isManual ? "Manual" : "Automatic"}: ${mappingId(mapping)}`
+                      : "Search fallback"}
+                  </span>
                 </div>
               </div>
 
-              <form action={saveAction} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <form action={saveAction} className="provider-mapping-editor__form">
                 <input name={targetField} type="hidden" value={props.targetId} />
                 <input name="provider" type="hidden" value={provider} />
                 <label className="field">
@@ -105,7 +106,7 @@ export function ProviderMappingCorrectionPanel(props: Props) {
                     placeholder={`${getProviderLabel(provider)} URL or ID`}
                   />
                 </label>
-                <SubmitButton className="ghost-button justify-center" pendingLabel="Saving...">
+                <SubmitButton className="ghost-button" pendingLabel="Saving...">
                   Save
                 </SubmitButton>
               </form>
@@ -114,7 +115,7 @@ export function ProviderMappingCorrectionPanel(props: Props) {
                 <input name={targetField} type="hidden" value={props.targetId} />
                 <input name="provider" type="hidden" value={provider} />
                 <SubmitButton
-                  className="ghost-button h-full justify-center"
+                  className="ghost-button provider-mapping-editor__remove"
                   disabled={!mapping}
                   pendingLabel="Removing..."
                   title={`Remove ${getProviderLabel(provider)} mapping`}
@@ -127,6 +128,6 @@ export function ProviderMappingCorrectionPanel(props: Props) {
           );
         })}
       </div>
-    </section>
+    </details>
   );
 }
