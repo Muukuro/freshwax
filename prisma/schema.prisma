@@ -77,6 +77,19 @@ model User {
   syncJobs           SyncJob[]
 }
 
+model PendingAccountMerge {
+  token          String   @id
+  targetUserId   String
+  sourceUserId   String
+  provider       Provider
+  providerUserId String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([targetUserId, expiresAt])
+  @@index([sourceUserId])
+}
+
 model Session {
   id        String   @id @default(cuid())
   token     String   @unique

@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Provider } from "@prisma/client";
 
+import {
+  AccountMergeConflictError,
+  clearAccountMergeCookie,
+  mergePendingAccountIntoTarget,
+} from "@/lib/account-merge";
 import { requireUser } from "@/lib/auth";
 import { cancelAllUserSyncQueueJobs, cancelUserSyncQueueJob } from "@/lib/sync-admin";
 import { prisma } from "@/lib/db";
@@ -141,6 +146,40 @@ export async function updateSettingsAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
   revalidatePath("/discoveries");
+}
+
+export async function confirmAccountMergeAction() {
+  const user = await requireUser();
+  let mergeConflict = false;
+
+  try {
+    await mergePendingAccountIntoTarget(user.id);
+  } catch (error) {
+    if (!(error instanceof AccountMergeConflictError)) {
+      throw error;
+    }
+
+    mergeConflict = true;
+  }
+
+  if (mergeConflict) {
+    redirect("/settings?accountMerge=conflict");
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/artists");
+  revalidatePath("/upcoming");
+  revalidatePath("/discoveries");
+  redirect("/settings?accountMerge=merged");
+}
+
+export async function dismissAccountMergeAction() {
+  await requireUser();
+  await clearAccountMergeCookie();
+
+  revalidatePath("/settings");
+  redirect("/settings");
 }
 
 export async function updateNotificationSettingsAction(formData: FormData) {

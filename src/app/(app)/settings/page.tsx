@@ -16,6 +16,8 @@ import {
   disconnectLastfmAction,
   disconnectSpotifyAction,
   disconnectTidalAction,
+  dismissAccountMergeAction,
+  confirmAccountMergeAction,
   rotateCalendarTokenAction,
   saveLastfmUsernameAction,
   updateNotificationSettingsAction,
@@ -24,6 +26,7 @@ import {
 } from "@/app/actions/settings";
 import { SubmitButton } from "@/components/submit-button";
 import { requireUser } from "@/lib/auth";
+import { getPendingAccountMergeForUser } from "@/lib/account-merge";
 import { env } from "@/lib/env";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { absoluteUrl } from "@/lib/utils";
@@ -79,8 +82,14 @@ function disconnectActionFor(provider: Provider) {
   }
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ accountMerge?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requireUser();
+  const pendingAccountMerge = await getPendingAccountMergeForUser(user.id);
   const timeZone = getEffectiveTimeZone(user.timezone);
   const supportedTimeZones = getSupportedTimeZones();
   const calendarUrl = absoluteUrl(`/calendar/${user.calendarToken?.token ?? ""}.ics`);
@@ -236,6 +245,49 @@ export default async function SettingsPage() {
       </section>
 
       <section className="settings-stack">
+        {pendingAccountMerge ? (
+          <article className="panel settings-panel border-[var(--accent)]">
+            <div className="panel-heading">
+              <div className="panel-heading__body">
+                <p className="eyebrow">Account merge</p>
+                <h2 className="panel-heading__title">Merge existing {pendingAccountMerge.providerLabel} account?</h2>
+                <p className="panel-heading__text">
+                  {pendingAccountMerge.providerLabel} is already linked to {pendingAccountMerge.sourceUser.email}.
+                  You are signed in as {pendingAccountMerge.targetUser.email}. Merge the existing account into this
+                  one to keep this sign-in and bring over its follows, ignores, discoveries, notifications, provider
+                  links, and import settings.
+                </p>
+              </div>
+            </div>
+            {params.accountMerge === "conflict" ? (
+              <div className="panel-muted mt-5 p-4 text-sm text-[var(--muted)]">
+                This merge could not be completed because both accounts already have different connections for one
+                provider. Disconnect the provider from this account first, then try the merge again.
+              </div>
+            ) : null}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <form action={confirmAccountMergeAction}>
+                <SubmitButton className="primary-button" pendingLabel="Merging...">
+                  Merge into this account
+                </SubmitButton>
+              </form>
+              <form action={dismissAccountMergeAction}>
+                <SubmitButton className="ghost-button" pendingLabel="Canceling...">
+                  Cancel
+                </SubmitButton>
+              </form>
+            </div>
+          </article>
+        ) : params.accountMerge === "merged" ? (
+          <div className="panel-muted p-4 text-sm text-[var(--muted)]">
+            Account data was merged into the signed-in account.
+          </div>
+        ) : params.accountMerge === "conflict" ? (
+          <div className="panel-muted p-4 text-sm text-[var(--muted)]">
+            The account merge request expired or could not be completed. Start the provider connection flow again.
+          </div>
+        ) : null}
+
         <article className="panel settings-panel">
           <div className="panel-heading">
             <div className="panel-heading__body">

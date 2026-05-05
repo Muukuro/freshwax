@@ -16,6 +16,7 @@
 ## Main decisions
 
 - Local password auth remains available, but external identities can now create or link to Freshwax accounts while Freshwax still owns the final session cookie.
+- External identity conflicts during a signed-in connection flow create a short-lived `PendingAccountMerge` confirmation instead of silently merging accounts. Confirming from Settings moves user-owned data into the signed-in account while preserving that account's email/password/session and calendar token.
 - Core artist search, following, sync, dashboard feeds, and calendar output must work without any configured platform credentials.
 - External import sources are optional and additive: a Last.fm username and/or streaming-platform account can be linked per local user, but they do not replace local sessions.
 - Canonical artist and release records are separated from provider mappings so the app can tolerate imperfect cross-provider linkage.

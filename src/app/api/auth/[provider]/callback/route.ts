@@ -16,6 +16,7 @@ import {
   getCurrentUser,
   getPostAuthRedirect,
 } from "@/lib/auth";
+import { createAccountMergeIntent, setAccountMergeCookie } from "@/lib/account-merge";
 import { prisma } from "@/lib/db";
 import { getRequestOrigin } from "@/lib/utils";
 
@@ -87,7 +88,15 @@ export async function GET(
       });
 
       if (existingIdentity && existingIdentity.userId !== currentUser.id) {
-        return redirectWithError(request, "provider-link-required", returnOrigin);
+        const token = await createAccountMergeIntent({
+          targetUserId: currentUser.id,
+          sourceUserId: existingIdentity.userId,
+          provider,
+          providerUserId: profile.providerUserId,
+        });
+
+        await setAccountMergeCookie(token);
+        return NextResponse.redirect(buildRedirectUrl(request, "/settings?accountMerge=pending", returnOrigin));
       }
 
       await prisma.externalIdentity.upsert({
