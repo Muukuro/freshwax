@@ -1,4 +1,10 @@
-import { JobKind, JobStatus, Provider, ProviderMappingSource, type Prisma } from "@prisma/client";
+import {
+  JobKind,
+  JobStatus,
+  Provider,
+  ProviderMappingSource,
+  type Prisma,
+} from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import {
@@ -9,7 +15,6 @@ import {
 import {
   fetchArtistById,
   fetchArtistReleases,
-  fetchTrackArtistNames,
   fetchCurrentUserFollowedArtists,
 } from "@/lib/providers/deezer";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
@@ -19,6 +24,7 @@ import {
   fetchMbPlatformMappingsByMbid,
   fetchMbReleasePlatformMappings,
   fetchMbReleasePlatformMappingsByReleaseGroupMbid,
+  isComposerOnlyAppearanceOnReleaseGroup,
   lookupMbidByUrl,
   searchArtistMbid,
 } from "@/lib/providers/musicbrainz";
@@ -33,6 +39,7 @@ import {
 } from "@/lib/notifications";
 import { buildTidalReleaseSearchUrl, fetchTidalFollowedArtists } from "@/lib/providers/tidal";
 import { classifyReleaseType } from "@/lib/release-types";
+import { RELEASE_ARTIST_ROLE } from "@/lib/release-artist-role";
 import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
 import { getAppDefaultTimeZone, getEffectiveTimeZone } from "@/lib/timezone-server";
 import { getDateOffsetUtcDateForTimeZone, getTodayUtcDateForTimeZone } from "@/lib/timezone";
@@ -64,12 +71,16 @@ type CoreReleaseCandidate = {
   deezerRaw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput;
 };
 
+type ReleaseArtistRoleCandidate = {
+  releaseGroupMbid?: string | null;
+  releaseDate: string;
+  title: string;
+};
+
 type SyncWindow = {
   releaseDateCutoff: Date;
   releaseDateCutoffKey: string;
 };
-
-const CLASSICAL_GENRE_ID = 98;
 
 async function upsertAutomaticArtistProviderMapping(input: {
   artistId: string;
@@ -235,68 +246,6 @@ async function throwIfImportCancelled(userId: string) {
   }
 }
 
-function shouldCaptureAttributionHints(
-  release: { releaseDate: string; raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput },
-  maxDiscoveryWindowDays: number,
-) {
-  if (!release.raw || typeof release.raw !== "object" || Array.isArray(release.raw)) {
-    return false;
-  }
-
-  const genreId =
-    "genre_id" in release.raw && typeof release.raw.genre_id === "number"
-      ? release.raw.genre_id
-      : null;
-
-  if (genreId !== CLASSICAL_GENRE_ID) {
-    return false;
-  }
-
-  const releaseDate = new Date(`${release.releaseDate}T00:00:00.000Z`);
-  const discoveryCutoff = getDateOffsetUtcDateForTimeZone(
-    getAppDefaultTimeZone(),
-    -maxDiscoveryWindowDays,
-  );
-
-  return releaseDate >= discoveryCutoff;
-}
-
-async function enrichReleaseRawSource(
-  release: { releaseDate: string; raw?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput },
-  maxDiscoveryWindowDays: number,
-) {
-  if (!shouldCaptureAttributionHints(release, maxDiscoveryWindowDays)) {
-    return release.raw;
-  }
-
-  if (!release.raw || typeof release.raw !== "object" || Array.isArray(release.raw)) {
-    return release.raw;
-  }
-
-  const tracklistUrl =
-    "tracklist" in release.raw && typeof release.raw.tracklist === "string"
-      ? release.raw.tracklist
-      : null;
-
-  if (!tracklistUrl) {
-    return release.raw;
-  }
-
-  try {
-    const trackArtistNames = await fetchTrackArtistNames(tracklistUrl);
-
-    return {
-      ...release.raw,
-      attributionHints: {
-        trackArtistNames,
-      },
-    } satisfies Prisma.InputJsonValue;
-  } catch (error) {
-    console.error("Failed to enrich Deezer release attribution hints", error);
-    return release.raw;
-  }
-}
-
 function toInputJsonValue(
   value: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined,
 ): Prisma.InputJsonValue | undefined {
@@ -406,11 +355,42 @@ function isReleaseInsideSyncWindow(releaseDate: string, window: SyncWindow) {
   return releaseDate >= window.releaseDateCutoffKey;
 }
 
+async function resolveReleaseArtistRole(input: {
+  artistMbid: string;
+  artistName: string;
+  isClassicalComposer: boolean;
+  release: ReleaseArtistRoleCandidate;
+}) {
+  if (!input.isClassicalComposer || !input.release.releaseGroupMbid) {
+    return RELEASE_ARTIST_ROLE.PRIMARY;
+  }
+
+  try {
+    const isComposerAppearance = await isComposerOnlyAppearanceOnReleaseGroup({
+      releaseGroupMbid: input.release.releaseGroupMbid,
+      firstReleaseDate: input.release.releaseDate,
+      artistMbid: input.artistMbid,
+    });
+
+    return isComposerAppearance
+      ? RELEASE_ARTIST_ROLE.COMPOSER_APPEARANCE
+      : RELEASE_ARTIST_ROLE.PRIMARY;
+  } catch (error) {
+    console.error("Failed to classify MusicBrainz composer appearance", {
+      artistName: input.artistName,
+      artistMbid: input.artistMbid,
+      releaseTitle: input.release.title,
+      releaseGroupMbid: input.release.releaseGroupMbid,
+      error,
+    });
+    return RELEASE_ARTIST_ROLE.PRIMARY;
+  }
+}
+
 async function buildCoreReleaseCandidates(
   artistName: string,
   mbid: string,
   deezerMapping: { providerArtistId: string } | null,
-  maxDiscoveryWindowDays: number,
   syncWindow: SyncWindow,
   queueJobId?: string,
 ) {
@@ -465,8 +445,7 @@ async function buildCoreReleaseCandidates(
 
     const key = `${normalizedTitle}:${release.releaseDate}`;
     const existing = releaseByKey.get(key);
-    const rawSource = await enrichReleaseRawSource(release, maxDiscoveryWindowDays);
-    const deezerRaw = toInputJsonValue(rawSource ?? release.raw);
+    const deezerRaw = toInputJsonValue(release.raw);
 
     if (existing) {
       releaseByKey.set(key, {
@@ -1004,7 +983,6 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
             providerArtistId: deezerMapping.providerArtistId,
           }
         : null,
-      maxDiscoveryWindowDays,
       syncWindow,
       queueJobId,
     );
@@ -1071,6 +1049,12 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
           null;
       const existingRelease = existingMapping?.release ?? existingByCoreShape;
       const shouldEnrichPlatformMappings = releaseDate >= syncWindow.releaseDateCutoff;
+      const releaseArtistRole = await resolveReleaseArtistRole({
+        artistMbid: mbid,
+        artistName: artist.canonicalName,
+        isClassicalComposer: artist.isClassicalComposer,
+        release,
+      });
 
       if (existingRelease) {
         await prisma.release.update({
@@ -1096,10 +1080,13 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
               artistId,
             },
           },
-          update: {},
+          update: {
+            role: releaseArtistRole,
+          },
           create: {
             releaseId: existingRelease.id,
             artistId,
+            role: releaseArtistRole,
           },
         });
 
@@ -1162,6 +1149,7 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
           artists: {
             create: {
               artistId,
+              role: releaseArtistRole,
             },
           },
         },

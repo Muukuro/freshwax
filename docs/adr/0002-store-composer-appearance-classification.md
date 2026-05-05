@@ -1,0 +1,3 @@
+# Store composer appearance classification
+
+Freshwax will classify classical composer appearances during normal artist sync and persist the result as a small application-controlled role value on the release/artist association instead of recalculating provider metadata at feed-read time. Wikidata is used only to identify classical composers; MusicBrainz recording-to-work composer relationships from one deterministic representative release provide the release-specific evidence. Missing or incomplete MusicBrainz relationship data keeps the release visible, and existing rows are reclassified best-effort during future syncs rather than through a provider-calling migration.

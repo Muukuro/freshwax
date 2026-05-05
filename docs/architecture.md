@@ -24,12 +24,20 @@
 - Canonical artist records require the MusicBrainz artist ID as a dedicated field instead of overloading internal primary keys, which keeps provider imports anchored to a stable canonical identity.
 - Provider mappings can be corrected manually from artist and release detail pages. These corrections are global catalog state for the self-hosted instance, but they only repair exact external links; MusicBrainz remains the canonical identity layer.
 - Automatic MusicBrainz, Wikidata, and Deezer enrichment may add missing provider mappings, but it must not overwrite manually corrected mappings for the same catalog item and provider.
-- The "hide classical composer appearances" setting targets composer appearances, not all classical releases: Wikidata classifies whether the followed artist is a classical composer, while MusicBrainz recording-to-work relationships reached through a representative release should determine whether that artist appears only as composer or work creator on a specific release.
+- The "hide classical composer appearances" setting targets composer appearances, not all classical releases: Wikidata classifies whether the followed artist is a classical composer, while MusicBrainz recording-to-work composer relationships reached through a representative release should determine whether that artist appears only as composer on a specific release.
 - Composer-appearance classification is stored on the release/artist association during sync so feeds, calendar output, and notifications share one persisted interpretation instead of recalculating provider-specific raw metadata at read time.
+- Release/artist roles use a small application-controlled vocabulary, currently distinguishing primary associations from composer appearances, while staying compatible with the current `prisma db push` bootstrap flow.
 - A release remains visible when the followed classical composer is credited as a performer, conductor, ensemble member, or primary release artist anywhere on the release; composer-only classification applies only when no non-composer role is present.
+- User-scoped filtering hides a release only when every followed artist associated with that release is classified as a composer appearance.
+- Hidden composer appearances remain directly reachable as followed-artist release details and report that current settings filter them out, matching other visibility preferences.
+- Existing release/artist rows are reclassified best-effort during normal artist sync rather than by a schema migration that calls external providers.
+- Recording/work role classification is attempted only for artists classified as classical composers, keeping MusicBrainz request volume tied to the setting's actual scope.
+- Release-group-shaped feed items use one deterministic representative MusicBrainz release for recording/work classification rather than scanning every edition in the release group.
+- Representative release selection prefers an official release with media and recordings matching the release group's first-release date, then the earliest official release with recordings, then the earliest release with recordings; if none have usable recordings, the association stays visible.
 - Per-user platform behavior is modeled in `UserPlatformPreference` so import eligibility and visible links can vary by user without mutating canonical artist/release records.
 - Timezone remains per-user state, seeded from an instance default resolved as `DEFAULT_TIMEZONE`, then `TZ`, then `UTC`, so feeds and timestamps respect each account without requiring an admin settings surface.
 - Discovery is modeled per user via `DiscoveryEvent`, but the main feed is framed around recent releases; discovery events now act as attribution for late finds instead of deciding whether a release belongs in the recent feed.
+- Discovery events are recorded independently of composer-appearance visibility so users can reveal those releases later by changing the setting without needing a resync.
 - The primary recent-release surface is `/recent`; it includes release-day items and supports URL-only temporary view filters that can broaden or narrow release types and ignored visibility without changing persistent settings.
 - Upcoming releases are a planning surface for future-dated releases only, starting after the user's local release day.
 - Release-type settings are persistent visibility defaults for feeds, calendar output, and notifications; they do not limit canonical release sync/import scope.
@@ -45,8 +53,12 @@
 
 - Deezer metadata quality varies; it is treated as optional enrichment sourced from canonical mappings rather than a prerequisite for identity or release sync.
 - Manual provider mappings are intentionally narrow: they fix exact artist or release links, but they do not edit canonical names, dates, release types, or artist/release ownership.
-- Classical composer hiding is intentionally conservative and depends on MusicBrainz having enough release-specific relationship data to distinguish composer/work-creator appearances from performer, ensemble, or conductor releases.
+- Classical composer hiding is intentionally conservative and depends on MusicBrainz having enough release-specific relationship data to distinguish composer appearances from performer, ensemble, or conductor releases.
 - If MusicBrainz lacks enough recording/work relationship data to prove a composer-only appearance, Freshwax keeps the release visible.
+- Deezer genre and track attribution hints are not used as a fallback for composer-appearance hiding; Deezer remains artwork/link enrichment only for this flow.
+- The user-facing setting label remains "Hide classical composer appearances"; the implementation defines that as proven composer-only appearances, not all classical releases.
+- Transient failures while fetching role-classification evidence do not fail artist sync; affected associations remain visible and sync continues.
+- Composer-appearance classification is refreshed during each normal artist sync for in-window releases so improved MusicBrainz relationship data can correct existing release/artist roles over time.
 - Import sources are best-effort, but they now only create followed artists after resolving a canonical MusicBrainz identity.
 - MusicBrainz request pacing is per Node.js process. Operators running multiple app or worker replicas behind one source IP should keep aggregate concurrency low enough to stay within MusicBrainz's source-IP guidance.
 - Only a subset of external login providers are fully implemented in this pass; unsupported providers still render as gated capabilities in onboarding and settings.

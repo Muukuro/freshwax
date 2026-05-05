@@ -13,10 +13,12 @@ let nextAllowedMusicBrainzRequestAt = 0;
 let musicBrainzRequestQueue = Promise.resolve();
 
 type MbRelation = {
+  type?: string;
   "target-type": string;
   artist?: { id: string };
   release?: { id: string };
   "release-group"?: { id: string };
+  work?: MbWork;
   url?: { resource: string };
 };
 
@@ -55,6 +57,49 @@ type MbReleaseGroup = {
 type MbReleaseGroupBrowseResponse = {
   "release-groups"?: MbReleaseGroup[];
   "release-group-count"?: number;
+};
+
+type MbReleaseSummary = {
+  id: string;
+  title?: string;
+  date?: string;
+  status?: string;
+};
+
+type MbReleaseBrowseResponse = {
+  releases?: MbReleaseSummary[];
+};
+
+type MbArtistCredit = {
+  name?: string;
+  artist?: {
+    id?: string;
+    name?: string;
+  };
+};
+
+type MbWork = {
+  id?: string;
+  relations?: MbRelation[];
+};
+
+type MbRecording = {
+  id?: string;
+  "artist-credit"?: MbArtistCredit[];
+  relations?: MbRelation[];
+};
+
+type MbReleaseDetail = {
+  id: string;
+  title?: string;
+  date?: string;
+  status?: string;
+  "artist-credit"?: MbArtistCredit[];
+  media?: {
+    tracks?: {
+      recording?: MbRecording;
+    }[];
+  }[];
 };
 
 export type MbPlatformMapping = {
@@ -242,6 +287,102 @@ export type MbArtistReleaseGroup = {
   }[];
 };
 
+function artistCreditIncludes(artistCredits: MbArtistCredit[] | undefined, mbid: string) {
+  return Boolean(
+    artistCredits?.some((credit) => credit.artist?.id === mbid),
+  );
+}
+
+function releaseHasUsableRecordings(release: MbReleaseDetail) {
+  return Boolean(
+    release.media?.some((medium) =>
+      medium.tracks?.some((track) => Boolean(track.recording?.id)),
+    ),
+  );
+}
+
+function relationCreditsArtist(relation: MbRelation, mbid: string) {
+  return relation["target-type"] === "artist" && relation.artist?.id === mbid;
+}
+
+function classifyComposerAppearanceFromRelease(release: MbReleaseDetail, mbid: string) {
+  let hasComposerRelationship = false;
+
+  if (artistCreditIncludes(release["artist-credit"], mbid)) {
+    return false;
+  }
+
+  for (const medium of release.media ?? []) {
+    for (const track of medium.tracks ?? []) {
+      const recording = track.recording;
+      if (!recording) continue;
+
+      if (artistCreditIncludes(recording["artist-credit"], mbid)) {
+        return false;
+      }
+
+      for (const relation of recording.relations ?? []) {
+        if (relationCreditsArtist(relation, mbid)) {
+          return false;
+        }
+
+        if (relation["target-type"] !== "work" || !relation.work) {
+          continue;
+        }
+
+        for (const workRelation of relation.work.relations ?? []) {
+          if (!relationCreditsArtist(workRelation, mbid)) {
+            continue;
+          }
+
+          if (workRelation.type === "composer") {
+            hasComposerRelationship = true;
+          } else {
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  return hasComposerRelationship;
+}
+
+function releaseDateKey(release: MbReleaseSummary | MbReleaseDetail) {
+  return release.date || "9999-99-99";
+}
+
+function representativeReleasePriority(release: MbReleaseSummary, firstReleaseDate: string) {
+  const isOfficial = release.status?.toLowerCase() === "official";
+
+  if (isOfficial && release.date === firstReleaseDate) {
+    return 0;
+  }
+
+  if (isOfficial) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function sortRepresentativeCandidates(
+  releases: MbReleaseSummary[],
+  firstReleaseDate: string,
+) {
+  return [...releases].sort((left, right) => {
+    const priorityDiff =
+      representativeReleasePriority(left, firstReleaseDate) -
+      representativeReleasePriority(right, firstReleaseDate);
+    if (priorityDiff !== 0) return priorityDiff;
+
+    const dateDiff = releaseDateKey(left).localeCompare(releaseDateKey(right));
+    if (dateDiff !== 0) return dateDiff;
+
+    return (left.title ?? "").localeCompare(right.title ?? "");
+  });
+}
+
 function parsePlatformReleaseUrl(rawUrl: string): MbReleasePlatformMapping | null {
   let parsed: URL;
   try {
@@ -411,6 +552,37 @@ export async function fetchArtistReleaseGroupsByMbid(
   }
 
   return releaseGroups;
+}
+
+export async function isComposerOnlyAppearanceOnReleaseGroup(input: {
+  releaseGroupMbid: string;
+  firstReleaseDate: string;
+  artistMbid: string;
+}): Promise<boolean> {
+  const data = (await mbFetch(
+    `${MB_API}/release?release-group=${encodeURIComponent(input.releaseGroupMbid)}&inc=artist-credits&limit=100&fmt=json`,
+  )) as MbReleaseBrowseResponse;
+
+  const candidates = sortRepresentativeCandidates(
+    (data.releases ?? []).filter((release): release is MbReleaseSummary & { id: string } =>
+      Boolean(release.id),
+    ),
+    input.firstReleaseDate,
+  );
+
+  for (const candidate of candidates) {
+    const release = (await mbFetch(
+      `${MB_API}/release/${candidate.id}?inc=artist-credits+media+recordings+recording-level-rels+work-rels+work-level-rels+artist-rels&fmt=json`,
+    )) as MbReleaseDetail;
+
+    if (!releaseHasUsableRecordings(release)) {
+      continue;
+    }
+
+    return classifyComposerAppearanceFromRelease(release, input.artistMbid);
+  }
+
+  return false;
 }
 
 /**

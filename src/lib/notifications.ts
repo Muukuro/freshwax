@@ -44,7 +44,13 @@ type NotificationContext = Prisma.NotificationEventGetPayload<{
       include: {
         artists: {
           include: {
-            artist: true;
+            artist: {
+              include: {
+                followers: {
+                  select: { userId: true };
+                };
+              };
+            };
           };
         };
         ignoredBy: true;
@@ -216,7 +222,7 @@ function isReleaseVisibleForUser(event: NotificationContext) {
       rawSource: event.release.rawSource,
       artists: event.release.artists,
     },
-    settings,
+    { ...settings, userId: event.userId },
   );
 }
 
@@ -634,7 +640,13 @@ export async function drainNotificationQueue() {
         include: {
           artists: {
             include: {
-              artist: true,
+              artist: {
+                include: {
+                  followers: {
+                    select: { userId: true },
+                  },
+                },
+              },
             },
           },
           ignoredBy: true,

@@ -45,7 +45,7 @@ A human-maintained exact link between a canonical Freshwax artist or release and
 _Avoid_: Metadata edit, catalog rewrite, personal link preference
 
 **Composer Appearance**:
-A release where a followed classical artist appears only as the composer or work creator, while performers, ensembles, or conductors are the primary release artists.
+A release where a followed classical artist appears only as the composer, while performers, ensembles, or conductors are the primary release artists.
 _Avoid_: Hide classical, classical release
 
 ## Relationships

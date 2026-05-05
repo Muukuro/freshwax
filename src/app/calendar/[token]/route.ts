@@ -57,6 +57,11 @@ export async function GET(
           artist: {
             include: {
               mappings: true,
+              followers: {
+                where: { userId: calendarToken.userId },
+                select: { userId: true },
+                take: 1,
+              },
             },
           },
         },
@@ -65,7 +70,10 @@ export async function GET(
     },
     orderBy: [{ releaseDate: "asc" }, { title: "asc" }],
   });
-  const filteredReleases = filterReleasesForSettings(releases, settings ?? {}).map((release) => ({
+  const filteredReleases = filterReleasesForSettings(releases, {
+    ...(settings ?? {}),
+    userId: calendarToken.userId,
+  }).map((release) => ({
     ...release,
     platformLinks: buildReleasePlatformLinks({
       artistName: release.artists[0]?.artist.canonicalName ?? "Unknown Artist",
