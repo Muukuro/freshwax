@@ -1,6 +1,7 @@
 import { type PlatformLinkEntry } from "@/lib/data";
+import { artistUrl, releaseUrl } from "@/lib/deeplinks";
 import { serializeDateOnlyForIcs } from "@/lib/timezone";
-import { absoluteUrl, releaseTypeLabel } from "@/lib/utils";
+import { releaseTypeLabel } from "@/lib/utils";
 
 type CalendarRelease = {
   id: string;
@@ -8,7 +9,7 @@ type CalendarRelease = {
   releaseDate: Date;
   type: string;
   platformLinks?: PlatformLinkEntry[];
-  artists: { artist: { canonicalName: string } }[];
+  artists: { artist: { id: string; canonicalName: string } }[];
 };
 
 function escapeIcs(value: string) {
@@ -40,8 +41,11 @@ export function buildCalendarFeed(
     const description = [
       `Artist: ${artistNames}`,
       `Type: ${releaseTypeLabel(release.type)}`,
+      `Open release in Freshwax: ${releaseUrl(release.id)}`,
+      ...release.artists.map(
+        (entry) => `Open ${entry.artist.canonicalName} in Freshwax: ${artistUrl(entry.artist.id)}`,
+      ),
       ...(release.platformLinks ?? []).map((link) => `${link.label}: ${link.href}`),
-      `Open in app: ${absoluteUrl("/upcoming")}`,
     ]
       .filter(Boolean)
       .join("\\n");
@@ -53,6 +57,7 @@ export function buildCalendarFeed(
       `DTSTART;VALUE=DATE:${serializeDateOnlyForIcs(release.releaseDate)}`,
       `SUMMARY:${escapeIcs(`${artistNames} — ${release.title}`)}`,
       `DESCRIPTION:${escapeIcs(description)}`,
+      `URL:${escapeIcs(releaseUrl(release.id))}`,
       "END:VEVENT",
     );
   }

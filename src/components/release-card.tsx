@@ -1,5 +1,6 @@
 import { type Release } from "@prisma/client";
 import { EyeOff, Music4 } from "lucide-react";
+import Link from "next/link";
 
 import {
   ignoreReleaseAction,
@@ -8,11 +9,12 @@ import {
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
+import { artistPath, releasePath } from "@/lib/deeplinks";
 import { formatReleaseDate, isDiscoveredLate } from "@/lib/timezone";
 import { releaseTypeLabel } from "@/lib/utils";
 
 type ReleaseWithArtists = Release & {
-  artists: { artist: { canonicalName: string } }[];
+  artists: { artist: { id: string; canonicalName: string } }[];
   discoveries?: { discoveredAt: Date }[];
   ignoredBy?: { releaseId: string }[];
   platformLinks?: PlatformLinkEntry[];
@@ -44,8 +46,18 @@ export function ReleaseCard({
           <div className="release-card__topline">
             <div className="release-card__header">
               <p className="eyebrow">{releaseTypeLabel(release.type)}</p>
-              <h3 className="release-card__title">{release.title}</h3>
-              <p className="release-card__artist">{artistNames}</p>
+              <h3 className="release-card__title">
+                <Link href={releasePath(release.id)}>{release.title}</Link>
+              </h3>
+              <p className="release-card__artist">
+                {release.artists.map((entry, index) => (
+                  <span key={entry.artist.id}>
+                    {index > 0 ? ", " : ""}
+                    <Link href={artistPath(entry.artist.id)}>{entry.artist.canonicalName}</Link>
+                  </span>
+                ))}
+                {release.artists.length === 0 ? artistNames : null}
+              </p>
             </div>
             <div className="release-card__date">
               {formatReleaseDate(release.releaseDate)}

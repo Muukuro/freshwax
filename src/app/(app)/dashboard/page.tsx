@@ -1,4 +1,5 @@
 import { ArrowRight, CalendarClock, CalendarDays, Search, Sparkles, Users } from "lucide-react";
+import Link from "next/link";
 
 import { EmptyState } from "@/components/empty-state";
 import { ReleaseCard } from "@/components/release-card";
@@ -24,10 +25,10 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="dashboard-command__actions">
-          <a className="primary-button" href="/artists">
+          <Link className="primary-button" href="/artists">
             <Search className="h-4 w-4" />
             Follow artists
-          </a>
+          </Link>
           <span className="status-pill status-pill--steady">
             {data.settings.futureHorizonDays}d ahead &middot; {data.settings.discoveryWindowDays}d back
           </span>

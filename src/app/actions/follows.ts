@@ -62,6 +62,7 @@ export async function unfollowArtistAction(formData: FormData) {
 
   await unfollowArtistForUser(user.id, artistId);
 
+  revalidatePath(`/artists/${artistId}`);
   revalidatePath("/artists");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
@@ -88,12 +89,14 @@ export async function syncFollowedArtistNowAction(formData: FormData) {
 
   after(async () => {
     await syncArtist(artistId, user.id);
+    revalidatePath(`/artists/${artistId}`);
     revalidatePath("/artists");
     revalidatePath("/dashboard");
     revalidatePath("/upcoming");
     revalidatePath("/discoveries");
   });
 
+  revalidatePath(`/artists/${artistId}`);
   revalidatePath("/artists");
 }
 
@@ -235,6 +238,7 @@ export async function ignoreReleaseAction(formData: FormData) {
     },
   });
 
+  revalidatePath(`/releases/${releaseId}`);
   revalidatePath("/upcoming");
   revalidatePath("/discoveries");
   revalidatePath("/dashboard");
@@ -251,6 +255,7 @@ export async function unignoreReleaseAction(formData: FormData) {
     },
   });
 
+  revalidatePath(`/releases/${releaseId}`);
   revalidatePath("/upcoming");
   revalidatePath("/discoveries");
   revalidatePath("/dashboard");

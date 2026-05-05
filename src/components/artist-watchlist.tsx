@@ -2,12 +2,14 @@
 
 import { useDeferredValue, useState } from "react";
 import { Headphones, RefreshCw, Search, UserMinus } from "lucide-react";
+import Link from "next/link";
 
 import { syncFollowedArtistNowAction, unfollowArtistAction } from "@/app/actions/follows";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { type PlatformLinkEntry } from "@/lib/data";
+import { artistPath } from "@/lib/deeplinks";
 import { formatInteger, formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";
 import { normalizeName } from "@/lib/utils";
 
@@ -92,7 +94,7 @@ export function ArtistWatchlist({
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-lg font-semibold tracking-[-0.02em] text-[var(--text)]">
-                    {follow.canonicalName}
+                    <Link href={artistPath(follow.artistId)}>{follow.canonicalName}</Link>
                   </h3>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-[var(--muted)]">
                     {follow.deezerFans ? (

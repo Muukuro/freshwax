@@ -538,6 +538,99 @@ export async function getDiscoveredReleases(userId: string) {
   return sortByRecentRelease(releases);
 }
 
+export async function getReleaseDetail(userId: string, releaseId: string) {
+  const [settings, preferences, release] = await Promise.all([
+    prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
+    getUserPlatformPreferences(userId),
+    prisma.release.findFirst({
+      where: {
+        id: releaseId,
+        artists: {
+          some: {
+            artist: {
+              followers: {
+                some: { userId },
+              },
+            },
+          },
+        },
+      },
+      include: releaseInclude(userId),
+    }),
+  ]);
+
+  if (!release) {
+    return null;
+  }
+
+  return {
+    ...addReleasePlatformLinks(release, preferences),
+    visibleForCurrentFilters: isReleaseVisibleForSettings(release, settings),
+  };
+}
+
+export async function getArtistDetail(userId: string, artistId: string) {
+  const [settings, preferences, follow] = await Promise.all([
+    prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
+    getUserPlatformPreferences(userId),
+    prisma.userFollow.findUnique({
+      where: {
+        userId_artistId: {
+          userId,
+          artistId,
+        },
+      },
+      include: {
+        artist: {
+          include: {
+            mappings: true,
+            _count: {
+              select: {
+                releaseArtists: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+  ]);
+
+  if (!follow) {
+    return null;
+  }
+
+  const releases = await prisma.release.findMany({
+    where: {
+      artists: {
+        some: {
+          artistId,
+        },
+      },
+      type: buildReleaseTypeFilter(settings),
+      ignoredBy: settings.hideIgnored ? { none: { userId } } : undefined,
+    },
+    include: releaseInclude(userId),
+    orderBy: [{ releaseDate: "desc" }, { title: "asc" }],
+    take: 48,
+  });
+
+  return {
+    artist: {
+      ...addArtistPlatformLinks(
+        {
+          ...follow.artist,
+          releaseArtists: [],
+        },
+        preferences,
+      ),
+      lastSyncedAt: follow.lastSyncedAt?.toISOString() ?? null,
+    },
+    releases: filterReleasesForSettings(releases, settings).map((release) =>
+      addReleasePlatformLinks(release, preferences),
+    ),
+  };
+}
+
 export async function getUserPlatformPreferencesWithConnections(userId: string) {
   const [preferences, user] = await Promise.all([
     getUserPlatformPreferences(userId),

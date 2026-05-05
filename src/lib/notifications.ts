@@ -10,10 +10,10 @@ import webpush from "web-push";
 
 import { buildReleaseTypeFilter, isReleaseVisibleForSettings } from "@/lib/data";
 import { prisma } from "@/lib/db";
+import { artistUrl, releaseUrl } from "@/lib/deeplinks";
 import { env } from "@/lib/env";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
 import { getTodayUtcDateForTimeZone } from "@/lib/timezone";
-import { absoluteUrl } from "@/lib/utils";
 
 const RELEASE_DAY_HOUR = 9;
 const WEBHOOK_TARGET_KEY = "instance-webhook";
@@ -149,6 +149,10 @@ function getNotificationPath(kind: string) {
   return kind === NOTIFICATION_KIND_RELEASE_DAY ? "/upcoming" : "/discoveries";
 }
 
+function getNotificationUrl(event: NotificationContext) {
+  return releaseUrl(event.releaseId);
+}
+
 function buildNotificationCopy(event: NotificationContext) {
   const primaryArtist = event.release.artists[0]?.artist.canonicalName ?? "Unknown artist";
 
@@ -237,9 +241,11 @@ function buildWebhookPayload(event: NotificationContext) {
       ? {
           id: primaryArtist.id,
           name: primaryArtist.canonicalName,
+          url: artistUrl(primaryArtist.id),
         }
       : null,
-    targetUrl: absoluteUrl(getNotificationPath(event.kind)),
+    targetUrl: getNotificationUrl(event),
+    fallbackUrl: new URL(getNotificationPath(event.kind), releaseUrl(event.releaseId)).toString(),
     createdAt: event.createdAt.toISOString(),
     scheduledFor: event.scheduledFor.toISOString(),
   };
@@ -326,7 +332,7 @@ async function sendWebPushNotification(event: NotificationContext, endpoint: str
         data: {
           notificationEventId: event.id,
           kind: getEventKindValue(event.kind),
-          url: absoluteUrl(getNotificationPath(event.kind)),
+          url: getNotificationUrl(event),
         },
       }),
       {
