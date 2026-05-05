@@ -20,13 +20,13 @@ It keeps a canonical list of artists and releases, lets each user follow artists
 
 Freshwax is built around a simple idea: global release data should stay canonical, while visibility and follow state should stay personal.
 
-Each user gets their own followed artists, discovery feed, ignore state, notification preferences, timezone-aware release filtering, and tokenized calendar feed. The app stays server-rendered and product-focused rather than turning into a generic admin dashboard.
+Each user gets their own followed artists, recent-release feed, ignore state, notification preferences, timezone-aware release filtering, and tokenized calendar feed. The app stays server-rendered and product-focused rather than turning into a generic admin dashboard.
 
 ## Feature Highlights
 
 - Artist search backed by MusicBrainz, with Deezer used as a public fallback/enrichment source
-- Per-user follows, discovery feed, and ignore state
-- Upcoming and recent-release views tuned for actual listening workflows
+- Per-user follows, recent-release feed, and ignore state
+- Recent-first listening workflow with a separate upcoming-release planning view
 - Private `.ics` feed per user, exposed at `/calendar/:token.ics`
 - Optional browser push notifications and signed webhook delivery
 - Optional Last.fm import to seed a watchlist from listening history

@@ -12,6 +12,14 @@ import {
   getTodayUtcDateForTimeZone,
 } from "@/lib/timezone";
 
+export const PRIMARY_RECENT_RELEASE_TYPES = [
+  ReleaseType.ALBUM,
+  ReleaseType.EP,
+  ReleaseType.SINGLE,
+] as const;
+
+export const MORE_RECENT_RELEASE_TYPES = [ReleaseType.UNKNOWN] as const;
+
 export function buildReleaseTypeFilter(settings: {
   includeSingles: boolean;
   includeEps: boolean;
@@ -30,6 +38,34 @@ export function buildReleaseTypeFilter(settings: {
   }
 
   return excludedTypes.length ? { notIn: excludedTypes } : undefined;
+}
+
+function defaultRecentReleaseTypes(settings: {
+  includeSingles: boolean;
+  includeEps: boolean;
+  includeCompilations: boolean;
+  includeLive: boolean;
+  includeReissues: boolean;
+}) {
+  const types: ReleaseType[] = [ReleaseType.ALBUM, ReleaseType.UNKNOWN];
+
+  if (settings.includeEps) types.push(ReleaseType.EP);
+  if (settings.includeSingles) types.push(ReleaseType.SINGLE);
+  if (settings.includeCompilations) types.push(ReleaseType.COMPILATION);
+  if (settings.includeLive) types.push(ReleaseType.LIVE);
+  if (settings.includeReissues) types.push(ReleaseType.REISSUE, ReleaseType.REMASTER);
+
+  return types;
+}
+
+export function getDefaultRecentReleaseTypes(settings: {
+  includeSingles: boolean;
+  includeEps: boolean;
+  includeCompilations: boolean;
+  includeLive: boolean;
+  includeReissues: boolean;
+}) {
+  return defaultRecentReleaseTypes(settings);
 }
 
 const CLASSICAL_GENRE_ID = 98;
@@ -350,15 +386,16 @@ export async function getDashboardData(userId: string) {
   ]);
   const timeZone = getEffectiveTimeZone(user.timezone);
   const today = getTodayUtcDateForTimeZone(timeZone);
+  const tomorrow = getDateOffsetUtcDateForTimeZone(timeZone, 1);
   const discoveryCutoff = getDateOffsetUtcDateForTimeZone(timeZone, -settings.discoveryWindowDays);
   const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings.futureHorizonDays);
 
-  const [followedArtistsCount, upcoming, discoveredReleases] = await Promise.all([
+  const [followedArtistsCount, upcoming, recentReleases] = await Promise.all([
     prisma.userFollow.count({ where: { userId } }),
     prisma.release.findMany({
       where: {
         releaseDate: {
-          gte: today,
+          gte: tomorrow,
           lte: horizon,
         },
         type: buildReleaseTypeFilter(settings),
@@ -381,7 +418,7 @@ export async function getDashboardData(userId: string) {
       where: {
         releaseDate: {
           gte: discoveryCutoff,
-          lt: today,
+          lte: today,
         },
         type: buildReleaseTypeFilter(settings),
         artists: {
@@ -401,9 +438,9 @@ export async function getDashboardData(userId: string) {
   const filteredUpcoming = filterReleasesForSettings(upcoming, settings)
     .slice(0, 6)
     .map((release) => addReleasePlatformLinks(release, preferences));
-  const filteredDiscoveredReleases = filterReleasesForSettings(discoveredReleases, settings);
-  const discoveredReleasesCount = filteredDiscoveredReleases.length;
-  const discoveries = sortByRecentRelease(filteredDiscoveredReleases)
+  const filteredRecentReleases = filterReleasesForSettings(recentReleases, settings);
+  const recentReleasesCount = filteredRecentReleases.length;
+  const recent = sortByRecentRelease(filteredRecentReleases)
     .slice(0, 6)
     .map((release) => addReleasePlatformLinks(release, preferences));
 
@@ -412,8 +449,8 @@ export async function getDashboardData(userId: string) {
     preferences,
     followedArtistsCount,
     upcoming: filteredUpcoming,
-    discoveredReleasesCount,
-    discoveries,
+    recentReleasesCount,
+    recent,
   };
 }
 
@@ -484,12 +521,12 @@ export async function getUpcomingReleases(userId: string) {
     }),
   ]);
   const timeZone = getEffectiveTimeZone(user.timezone);
-  const today = getTodayUtcDateForTimeZone(timeZone);
+  const tomorrow = getDateOffsetUtcDateForTimeZone(timeZone, 1);
   const horizon = getDateOffsetUtcDateForTimeZone(timeZone, settings.futureHorizonDays);
 
   return getFilteredReleaseFeed(userId, {
     releaseDate: {
-      gte: today,
+      gte: tomorrow,
       lte: horizon,
     },
     type: buildReleaseTypeFilter(settings),
@@ -507,6 +544,16 @@ export async function getUpcomingReleases(userId: string) {
 }
 
 export async function getDiscoveredReleases(userId: string) {
+  return getRecentReleases(userId);
+}
+
+export async function getRecentReleases(
+  userId: string,
+  filters: {
+    releaseTypes?: ReleaseType[];
+    showIgnored?: boolean;
+  } = {},
+) {
   const [settings, user] = await Promise.all([
     prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
     prisma.user.findUniqueOrThrow({
@@ -520,9 +567,11 @@ export async function getDiscoveredReleases(userId: string) {
   const releases = await getFilteredReleaseFeed(userId, {
     releaseDate: {
       gte: discoveryCutoff,
-      lt: today,
+      lte: today,
     },
-    type: buildReleaseTypeFilter(settings),
+    type: filters.releaseTypes
+      ? { in: filters.releaseTypes }
+      : buildReleaseTypeFilter(settings),
     artists: {
       some: {
         artist: {
@@ -532,10 +581,38 @@ export async function getDiscoveredReleases(userId: string) {
         },
       },
     },
-    ignoredBy: settings.hideIgnored ? { none: { userId } } : undefined,
+    ignoredBy:
+      settings.hideIgnored && !filters.showIgnored ? { none: { userId } } : undefined,
   });
 
   return sortByRecentRelease(releases);
+}
+
+export async function getRecentReleasesPageData(
+  userId: string,
+  filters: {
+    releaseTypes?: ReleaseType[];
+    showIgnored?: boolean;
+  } = {},
+) {
+  const [settings, releases, followedArtistsCount] = await Promise.all([
+    prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
+    getRecentReleases(userId, filters),
+    prisma.userFollow.count({ where: { userId } }),
+  ]);
+
+  const defaultRecentReleasesCount =
+    filters.releaseTypes || filters.showIgnored
+      ? (await getRecentReleases(userId)).length
+      : releases.length;
+
+  return {
+    settings,
+    releases,
+    followedArtistsCount,
+    defaultRecentReleasesCount,
+    defaultReleaseTypes: defaultRecentReleaseTypes(settings),
+  };
 }
 
 export async function getReleaseDetail(userId: string, releaseId: string) {

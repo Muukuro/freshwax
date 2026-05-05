@@ -19,7 +19,7 @@ export default async function UpcomingPage() {
           <p className="eyebrow">Upcoming releases</p>
           <h2 className="page-intro__title">Calendar-first release timeline</h2>
           <p className="page-intro__body">
-            Scan the closest release dates first, with your filters applied before anything reaches the feed or calendar.
+            Scan future release dates first. Anything dated today moves to Recent Releases.
           </p>
           {singlesHidden ? (
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">

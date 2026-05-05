@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarClock, CalendarDays, Search, Sparkles, Users } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, Disc3, Search, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 
 import { EmptyState } from "@/components/empty-state";
@@ -20,15 +20,21 @@ export default async function DashboardPage() {
           <p className="eyebrow">Dashboard</p>
           <h1 className="dashboard-command__title">Release desk</h1>
           <p className="dashboard-command__body">
-            {data.upcoming.length} upcoming, {data.discoveries.length} recent,{" "}
+            {data.recentReleasesCount} recent, {data.upcoming.length} upcoming,{" "}
             {data.followedArtistsCount} followed artists.
           </p>
         </div>
         <div className="dashboard-command__actions">
-          <Link className="primary-button" href="/artists">
-            <Search className="h-4 w-4" />
-            Follow artists
+          <Link className="primary-button" href="/recent">
+            <Disc3 className="h-4 w-4" />
+            Open recent releases
           </Link>
+          {data.followedArtistsCount === 0 ? (
+            <Link className="ghost-button" href="/artists">
+              <Search className="h-4 w-4" />
+              Follow artists
+            </Link>
+          ) : null}
           <span className="status-pill status-pill--steady">
             {data.settings.futureHorizonDays}d ahead &middot; {data.settings.discoveryWindowDays}d back
           </span>
@@ -37,10 +43,10 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <StatsCard
-          label="Followed artists"
-          value={String(data.followedArtistsCount)}
-          detail="Artists with active background sync coverage."
-          icon={Users}
+          label="Recent releases"
+          value={String(data.recentReleasesCount)}
+          detail={`Released in the last ${data.settings.discoveryWindowDays} days from artists you follow.`}
+          icon={Sparkles}
         />
         <StatsCard
           label="Upcoming releases"
@@ -49,19 +55,47 @@ export default async function DashboardPage() {
           icon={CalendarDays}
         />
         <StatsCard
-          label="Recent releases"
-          value={String(data.discoveredReleasesCount)}
-          detail={`Released in the last ${data.settings.discoveryWindowDays} days from artists you follow.`}
-          icon={Sparkles}
+          label="Followed artists"
+          value={String(data.followedArtistsCount)}
+          detail="Artists with active background sync coverage."
+          icon={Users}
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(22rem,0.65fr)]">
+        <div className="space-y-4">
+          <div className="section-bar">
+            <div>
+              <p className="eyebrow">Recent releases</p>
+              <h2 className="section-bar__title">Fresh from your watchlist</h2>
+            </div>
+            <a className="ghost-button" href="/recent">
+              <Sparkles className="h-4 w-4" />
+              View all
+            </a>
+          </div>
+          {data.recent.length === 0 ? (
+            <EmptyState
+              title="No recent releases"
+              body="Freshwax keeps this feed focused on releases that are ready to play from artists you follow."
+            />
+          ) : (
+            data.recent.map((release) => (
+              <ReleaseCard
+                key={release.id}
+                release={release}
+                showDiscoveredAt
+                timeZone={timeZone}
+              />
+            ))
+          )}
+        </div>
+
         <div className="space-y-4">
           <div className="section-bar">
             <div>
               <p className="eyebrow">Upcoming</p>
-              <h2 className="section-bar__title">Nearest release dates</h2>
+              <h2 className="section-bar__title">Next up</h2>
             </div>
             <a className="ghost-button" href="/upcoming">
               <CalendarClock className="h-4 w-4" />
@@ -71,39 +105,11 @@ export default async function DashboardPage() {
           {data.upcoming.length === 0 ? (
             <EmptyState
               title="Nothing on the horizon yet"
-              body="Follow a few artists from the search page and the worker will start filling this board with upcoming releases."
+              body="Follow a few artists from the search page and the worker will start filling this board with future release dates."
             />
           ) : (
             data.upcoming.map((release) => (
               <ReleaseCard key={release.id} release={release} timeZone={timeZone} />
-            ))
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <div className="section-bar">
-            <div>
-              <p className="eyebrow">Recent releases</p>
-              <h2 className="section-bar__title">Latest releases from followed artists</h2>
-            </div>
-            <a className="ghost-button" href="/discoveries">
-              <Sparkles className="h-4 w-4" />
-              View feed
-            </a>
-          </div>
-          {data.discoveries.length === 0 ? (
-            <EmptyState
-              title="No recent releases"
-              body="Freshwax keeps this feed focused on the latest releases from artists you follow, while late finds are marked on the cards."
-            />
-          ) : (
-            data.discoveries.map((release) => (
-              <ReleaseCard
-                key={release.id}
-                release={release}
-                showDiscoveredAt
-                timeZone={timeZone}
-              />
             ))
           )}
         </div>

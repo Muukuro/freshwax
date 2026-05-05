@@ -25,12 +25,15 @@
 - Per-user platform behavior is modeled in `UserPlatformPreference` so import eligibility and visible links can vary by user without mutating canonical artist/release records.
 - Timezone remains per-user state, seeded from an instance default resolved as `DEFAULT_TIMEZONE`, then `TZ`, then `UTC`, so feeds and timestamps respect each account without requiring an admin settings surface.
 - Discovery is modeled per user via `DiscoveryEvent`, but the main feed is framed around recent releases; discovery events now act as attribution for late finds instead of deciding whether a release belongs in the recent feed.
+- The primary listening surface is `/recent`; it includes release-day items and supports URL-only temporary listening filters that can broaden or narrow release types and ignored visibility without changing persistent settings.
+- Upcoming releases are a planning surface for future-dated releases only, starting after the user's local release day.
+- Release-type settings are persistent visibility defaults for feeds, calendar output, and notifications; they do not limit canonical release sync/import scope.
 - Ignoring a release is per-user and does not mutate the shared canonical release record.
-- Calendar feeds are tokenized and stable, with deterministic UIDs based on release id plus token.
+- Calendar feeds are tokenized and stable, with deterministic UIDs based on release id plus token, and include both recent and upcoming date windows while respecting persistent settings.
 - Notification events are persisted per user/release/kind, scheduled in UTC using the user timezone, and fanned out into per-channel delivery records.
 - Full-catalog sync is app-driven: the worker maintains recurring scheduling, and authenticated app visits opportunistically enqueue a global sync when the watchlist is stale so the dashboard does not rely on a manual button.
 - Recurring sync includes startup jitter so self-hosted instances do not all wake up on the same exact interval boundary.
-- First-run onboarding is explicit: new users choose favorite platforms, import defaults, and link visibility before they land in the main app shell.
+- First-run onboarding is explicit: new users choose favorite platforms, default release visibility, and link behavior before they land in the main app shell.
 
 ## Known limitations
 

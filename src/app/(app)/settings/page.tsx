@@ -136,7 +136,7 @@ export default async function SettingsPage({
               <p className="eyebrow">Filtering</p>
               <h2 className="panel-heading__title">Release defaults</h2>
               <p className="panel-heading__text">
-                These settings shape upcoming releases, recent discoveries, and your private calendar feed.
+                These settings shape default feeds, calendar output, and notifications. The Recent Releases page can be adjusted temporarily without changing them.
               </p>
             </div>
           </div>
@@ -152,7 +152,7 @@ export default async function SettingsPage({
             <div className="settings-cluster">
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="field h-full justify-between">
-                  <span>Future horizon</span>
+                  <span>Show upcoming releases for the next N days</span>
                   <input
                     defaultValue={user.settings?.futureHorizonDays ?? 180}
                     min="14"
@@ -161,7 +161,7 @@ export default async function SettingsPage({
                   />
                 </label>
                 <label className="field h-full justify-between">
-                  <span>Recent releases window</span>
+                  <span>Show releases from the last N days</span>
                   <input
                     defaultValue={user.settings?.discoveryWindowDays ?? 30}
                     min="1"
@@ -254,7 +254,7 @@ export default async function SettingsPage({
                 <p className="panel-heading__text">
                   {pendingAccountMerge.providerLabel} is already linked to {pendingAccountMerge.sourceUser.email}.
                   You are signed in as {pendingAccountMerge.targetUser.email}. Merge the existing account into this
-                  one to keep this sign-in and bring over its follows, ignores, discoveries, notifications, provider
+                  one to keep this sign-in and bring over its follows, ignores, late-find history, notifications, provider
                   links, and import settings.
                 </p>
               </div>
@@ -294,7 +294,7 @@ export default async function SettingsPage({
               <p className="eyebrow">Onboarding</p>
               <h2 className="panel-heading__title">Platform setup</h2>
               <p className="panel-heading__text">
-                Revisit favorites, import defaults, and link visibility without changing your account.
+                Revisit favorites, default visibility, and link behavior without changing your account.
               </p>
             </div>
           </div>

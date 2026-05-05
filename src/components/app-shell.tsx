@@ -10,9 +10,9 @@ import { SubmitButton } from "@/components/submit-button";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/artists", label: "Artists", icon: Search },
+  { href: "/recent", label: "Recent", icon: Disc3 },
   { href: "/upcoming", label: "Upcoming", icon: CalendarClock },
-  { href: "/discoveries", label: "Recent", icon: Disc3 },
+  { href: "/artists", label: "Artists", icon: Search },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -38,7 +38,7 @@ export function AppShell({
                   Freshwax
                 </p>
                 <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
-                  A calm desk for artists, upcoming drops, and the releases worth a closer look.
+                  A calm desk for recent listens, future releases, and the artists you follow.
                 </p>
               </div>
 

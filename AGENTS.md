@@ -142,3 +142,17 @@ If you make a meaningful architectural or operational change, update:
 - `docs/architecture.md` for design decisions or limitations
 
 Keep docs aligned with the actual code, not intended future state.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `Muukuro/freshwax`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repo uses the default five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repo uses a single-context domain docs layout. See `docs/agents/domain.md`.

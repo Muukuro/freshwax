@@ -53,7 +53,7 @@ export async function followArtistAction(formData: FormData) {
   revalidatePath("/artists");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
 }
 
 export async function unfollowArtistAction(formData: FormData) {
@@ -66,7 +66,7 @@ export async function unfollowArtistAction(formData: FormData) {
   revalidatePath("/artists");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
 }
 
 export async function syncFollowedArtistNowAction(formData: FormData) {
@@ -93,7 +93,7 @@ export async function syncFollowedArtistNowAction(formData: FormData) {
     revalidatePath("/artists");
     revalidatePath("/dashboard");
     revalidatePath("/upcoming");
-    revalidatePath("/discoveries");
+    revalidatePath("/recent");
   });
 
   revalidatePath(`/artists/${artistId}`);
@@ -138,7 +138,7 @@ export async function importDeezerFollowsAction(
     revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/upcoming");
-    revalidatePath("/discoveries");
+    revalidatePath("/recent");
   });
 
   return { ok: true, started: true };
@@ -174,7 +174,7 @@ export async function importTidalFollowsAction(
     revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/upcoming");
-    revalidatePath("/discoveries");
+    revalidatePath("/recent");
   });
 
   return { ok: true, started: true };
@@ -214,7 +214,7 @@ export async function importLastfmArtistsAction(
     revalidatePath("/settings");
     revalidatePath("/dashboard");
     revalidatePath("/upcoming");
-    revalidatePath("/discoveries");
+    revalidatePath("/recent");
   });
 
   return { ok: true, started: true };
@@ -240,7 +240,7 @@ export async function ignoreReleaseAction(formData: FormData) {
 
   revalidatePath(`/releases/${releaseId}`);
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
   revalidatePath("/dashboard");
 }
 
@@ -257,6 +257,6 @@ export async function unignoreReleaseAction(formData: FormData) {
 
   revalidatePath(`/releases/${releaseId}`);
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
   revalidatePath("/dashboard");
 }

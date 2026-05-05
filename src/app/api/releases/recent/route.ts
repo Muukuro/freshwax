@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
-import { getDiscoveredReleases } from "@/lib/data";
+import { getRecentReleases } from "@/lib/data";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -7,6 +7,6 @@ export async function GET() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const releases = await getDiscoveredReleases(user.id);
+  const releases = await getRecentReleases(user.id);
   return Response.json(releases);
 }

@@ -145,8 +145,8 @@ function localTimePartsToUtc(parts: TimeParts, timeZone: string) {
   return new Date(guess);
 }
 
-function getNotificationPath(kind: string) {
-  return kind === NOTIFICATION_KIND_RELEASE_DAY ? "/upcoming" : "/discoveries";
+function getNotificationPath() {
+  return "/recent";
 }
 
 function getNotificationUrl(event: NotificationContext) {
@@ -165,7 +165,7 @@ function buildNotificationCopy(event: NotificationContext) {
 
   return {
     title: `Freshwax found a release for ${primaryArtist}`,
-    body: `${event.release.title} was added to your discoveries feed.`,
+    body: `${event.release.title} was added to your recent releases.`,
   };
 }
 
@@ -245,7 +245,7 @@ function buildWebhookPayload(event: NotificationContext) {
         }
       : null,
     targetUrl: getNotificationUrl(event),
-    fallbackUrl: new URL(getNotificationPath(event.kind), releaseUrl(event.releaseId)).toString(),
+    fallbackUrl: new URL(getNotificationPath(), releaseUrl(event.releaseId)).toString(),
     createdAt: event.createdAt.toISOString(),
     scheduledFor: event.scheduledFor.toISOString(),
   };

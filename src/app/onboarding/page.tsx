@@ -84,7 +84,7 @@ export default async function OnboardingPage() {
               <div>
                 <p className="font-medium text-[var(--text)]">3. Release view defaults</p>
                 <p className="text-sm leading-6 text-[var(--muted)]">
-                  Save the link and filter defaults you want before landing on the dashboard.
+                  Save the default feed, calendar, notification, and link preferences you want before landing on the dashboard.
                 </p>
               </div>
             </div>
@@ -181,7 +181,7 @@ export default async function OnboardingPage() {
 
           <section className="panel grid gap-6 md:grid-cols-2">
             <div className="space-y-4">
-              <p className="eyebrow">Release defaults</p>
+              <p className="eyebrow">Default visibility</p>
               <TimezoneField
                 defaultValue={timeZone}
                 name="timezone"

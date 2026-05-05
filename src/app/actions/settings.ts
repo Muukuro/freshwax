@@ -145,7 +145,7 @@ export async function updateSettingsAction(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
 }
 
 export async function confirmAccountMergeAction() {
@@ -170,7 +170,7 @@ export async function confirmAccountMergeAction() {
   revalidatePath("/dashboard");
   revalidatePath("/artists");
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
   redirect("/settings?accountMerge=merged");
 }
 
@@ -209,7 +209,7 @@ export async function updatePlatformPreferencesAction(formData: FormData) {
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
-  revalidatePath("/discoveries");
+  revalidatePath("/recent");
 }
 
 export async function completeOnboardingAction(formData: FormData) {

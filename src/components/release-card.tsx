@@ -35,6 +35,7 @@ export function ReleaseCard({
   const discoveredAt = release.discoveries?.[0]?.discoveredAt ?? null;
   const discoveredLate =
     discoveredAt !== null && isDiscoveredLate(discoveredAt, release.releaseDate, timeZone);
+  const [primaryPlatformLink, ...secondaryPlatformLinks] = release.platformLinks ?? [];
 
   return (
     <article className="panel release-card overflow-hidden">
@@ -78,7 +79,15 @@ export function ReleaseCard({
           </div>
 
           <div className="release-card__actions">
-            {(release.platformLinks ?? []).map((link) => (
+            {primaryPlatformLink ? (
+              <PlatformLink
+                className="primary-button"
+                href={primaryPlatformLink.href}
+                label={`${primaryPlatformLink.exact ? "Listen on" : "Search on"} ${primaryPlatformLink.label}`}
+              />
+            ) : null}
+
+            {secondaryPlatformLinks.map((link) => (
               <PlatformLink
                 key={`${release.id}-${link.provider}`}
                 className="ghost-button"
