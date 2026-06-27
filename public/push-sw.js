@@ -105,11 +105,13 @@ self.addEventListener("push", (event) => {
   }
 
   const payload = event.data.json();
+  const imageUrl = typeof payload.imageUrl === "string" ? payload.imageUrl : undefined;
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
       badge: "/icon",
       icon: "/icon",
+      image: imageUrl,
       tag: payload.tag,
       data: payload.data,
     }),

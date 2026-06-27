@@ -12,6 +12,7 @@ import { buildReleaseTypeFilter, isReleaseVisibleForSettings } from "@/lib/data"
 import { prisma } from "@/lib/db";
 import { artistUrl, releaseUrl } from "@/lib/deeplinks";
 import { env } from "@/lib/env";
+import { buildNotificationCopy } from "@/lib/notification-copy";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
 import { getTodayUtcDateForTimeZone } from "@/lib/timezone";
 
@@ -159,20 +160,17 @@ function getNotificationUrl(event: NotificationContext) {
   return releaseUrl(event.releaseId);
 }
 
-function buildNotificationCopy(event: NotificationContext) {
-  const primaryArtist = event.release.artists[0]?.artist.canonicalName ?? "Unknown artist";
-
-  if (event.kind === NOTIFICATION_KIND_RELEASE_DAY) {
-    return {
-      title: `${primaryArtist} release day`,
-      body: `${event.release.title} is out today.`,
-    };
+function getNotificationImageUrl(event: NotificationContext) {
+  if (!event.release.coverUrl) {
+    return null;
   }
 
-  return {
-    title: `Freshwax found a release for ${primaryArtist}`,
-    body: `${event.release.title} was added to your recent releases.`,
-  };
+  try {
+    const url = new URL(event.release.coverUrl);
+    return url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function buildWebhookSignature(payload: string) {
@@ -321,6 +319,7 @@ async function sendWebPushNotification(event: NotificationContext, endpoint: str
   ensureWebPushClient();
 
   const copy = buildNotificationCopy(event);
+  const imageUrl = getNotificationImageUrl(event);
 
   try {
     await webpush.sendNotification(
@@ -334,6 +333,7 @@ async function sendWebPushNotification(event: NotificationContext, endpoint: str
       JSON.stringify({
         title: copy.title,
         body: copy.body,
+        imageUrl,
         tag: `${getEventKindValue(event.kind)}:${event.releaseId}`,
         data: {
           notificationEventId: event.id,
