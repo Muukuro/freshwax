@@ -65,18 +65,45 @@ Download the image-based Compose file and start the stack:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compose.image.yml
-curl -fsSLo .env https://raw.githubusercontent.com/Muukuro/freshwax/main/.env.example
 docker compose -f docker-compose.image.yml up
 ```
 
-Set `DATABASE_URL` and `REDIS_URL` in `.env`. With the included Compose file, the local defaults are:
+The included Compose file wires the bundled PostgreSQL and Redis services with:
 
-```text
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-REDIS_URL=redis://redis:6379
+```yaml
+environment:
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
+  REDIS_URL: redis://redis:6379
+```
+
+For a standalone `docker run` or a custom Compose file, pass the same required variables yourself:
+
+```yaml
+environment:
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
+  REDIS_URL: redis://redis:6379
+```
+
+or:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgresql://postgres:postgres@postgres:5432/freshwax?schema=public" \
+  -e REDIS_URL="redis://redis:6379" \
+  ghcr.io/muukuro/freshwax:1.2.3
 ```
 
 `APP_URL` defaults to `http://127.0.0.1:3000`, which is enough for a local container with `3000:3000` port mapping. Set `APP_URL` to the public origin, for example `https://freshwax.example.com`, when Freshwax is behind a reverse proxy or when you use calendar links, notifications, or OAuth callbacks.
+
+Additional optional settings can be added under `environment:` in Compose:
+
+```yaml
+environment:
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
+  REDIS_URL: redis://redis:6379
+  APP_URL: https://freshwax.example.com
+  LASTFM_API_KEY: your-lastfm-api-key
+```
 
 The image-based Compose file launches PostgreSQL, Redis, a first-run `prisma db push`, the web app, and the worker without requiring a source checkout.
 

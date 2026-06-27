@@ -2,9 +2,8 @@ services:
   db-init:
     image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
     command: npx prisma db push
-    env_file:
-      - .env
     environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
@@ -13,9 +12,8 @@ services:
   app:
     image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
     command: node .next/standalone/server.js
-    env_file:
-      - .env
     environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
@@ -28,9 +26,8 @@ services:
   worker:
     image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
     command: npx tsx src/worker.ts
-    env_file:
-      - .env
     environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
     depends_on:
       db-init:
