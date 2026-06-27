@@ -49,11 +49,9 @@ const envSchema = z.object({
 });
 
 export const env = envSchema.parse({
-  DATABASE_URL:
-    process.env.DATABASE_URL ??
-    "postgresql://postgres:postgres@localhost:5432/freshwax?schema=public",
-  REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
-  APP_URL: process.env.APP_URL ?? "http://127.0.0.1:3000",
+  DATABASE_URL: process.env.DATABASE_URL,
+  REDIS_URL: process.env.REDIS_URL,
+  APP_URL: process.env.APP_URL,
   DEEZER_APP_ID: process.env.DEEZER_APP_ID,
   DEEZER_APP_SECRET: process.env.DEEZER_APP_SECRET,
   SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
