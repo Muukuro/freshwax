@@ -1,10 +1,14 @@
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS base
 WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
+
+FROM deps AS builder
 COPY . .
 RUN npx prisma generate
 ARG BUILD_APP_URL=http://127.0.0.1:3000
@@ -17,10 +21,23 @@ RUN APP_URL="$BUILD_APP_URL" \
 RUN mkdir -p .next/standalone/.next \
   && cp -R .next/static .next/standalone/.next/static \
   && cp -R public .next/standalone/public
-RUN npm cache clean --force \
-  && rm -rf /root/.npm /app/node_modules/.cache /app/.next/cache
-RUN chmod +x ./docker/entrypoint.sh
+
+FROM base AS runner
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev \
+  && npm cache clean --force \
+  && rm -rf /root/.npm /app/node_modules/.cache
+COPY prisma ./prisma
+RUN npx prisma generate \
+  && rm -rf /root/.npm /app/node_modules/.cache
+COPY tsconfig.json ./
+COPY src ./src
+COPY docker ./docker
+COPY --from=builder /app/.next/standalone ./.next/standalone
+RUN chmod +x ./docker/entrypoint.sh \
+  && rm -rf /app/.next/standalone/.next/cache
 EXPOSE 3000
 ENTRYPOINT ["./docker/entrypoint.sh"]
 CMD ["node", ".next/standalone/server.js"]
