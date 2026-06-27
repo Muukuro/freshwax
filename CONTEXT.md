@@ -20,6 +20,10 @@ _Avoid_: Main feed, primary feed
 Metadata that explains when Freshwax surfaced a release after its release date.
 _Avoid_: Feed category, alert category
 
+**Late Find**:
+A release Freshwax surfaced after its release date, usually shown as attribution on a **Recent Release**.
+_Avoid_: Missed release, discovery
+
 **Release-Type Preference**:
 A persistent user setting that controls which release types appear in feeds, calendar output, and notifications by default.
 _Avoid_: Import setting, sync scope
@@ -53,7 +57,7 @@ _Avoid_: Hide classical, classical release
 - A **Release** belongs in feeds only when its release type passes the user's filters.
 - A **Release-Type Preference** defines the default scope for **Recent Releases**.
 - A **View Filter** can narrow or broaden visible **Recent Releases**, including **Ignored Releases**, without changing persistent user settings.
-- A **Recent Release** may have **Discovery Attribution** when Freshwax found it after release day.
+- A **Recent Release** may have **Discovery Attribution** when it is a **Late Find**.
 - An **Upcoming Release** becomes a **Recent Release** on release day.
 - A **Calendar Feed** includes both **Recent Releases** and **Upcoming Releases** within their date windows.
 - A **Recent Release** card should expose one **Primary Listen Action** before secondary platform links.
@@ -71,6 +75,7 @@ _Avoid_: Hide classical, classical release
 
 - "discovery" previously named the recent-release feed, but **Discovery Attribution** is only metadata for late finds; the feed concept is **Recent Release**.
 - "Discoveries" is retired as a user-facing route or navigation label; use **Recent Releases** for the primary recency-oriented surface.
+- "missed release" overstates responsibility and implies the user or app failed; use **Late Find** when Freshwax surfaces an already-released item.
 - "album" was used casually for the listening target, but the domain concept is **Release** because singles and EPs can be included by user settings.
 - Release-type settings were suspected to control import scope, but they are **Release-Type Preferences**: persistent visibility defaults, not sync/import limits.
 - **View Filters** expose user-facing release formats as independent toggles; albums and EPs must not be grouped into one control, and provider-metadata fallbacks like unknown type should not be presented as a normal filter.
