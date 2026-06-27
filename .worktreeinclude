@@ -1,0 +1,3 @@
+# Codex-managed worktrees copy only ignored files listed here.
+# Uncomment this if you want your local secrets and provider credentials copied.
+# .env
