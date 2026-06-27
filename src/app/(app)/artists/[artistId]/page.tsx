@@ -86,6 +86,7 @@ export default async function ArtistDetailPage({
           </form>
           <form action={unfollowArtistAction}>
             <input name="artistId" type="hidden" value={detail.artist.artistId} />
+            <input name="redirectTo" type="hidden" value="/artists" />
             <SubmitButton className="ghost-button" pendingLabel="Removing...">
               <UserMinus className="h-4 w-4" />
               Unfollow

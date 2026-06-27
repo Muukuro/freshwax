@@ -2,6 +2,7 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { Provider } from "@prisma/client";
 
 import { requireUser } from "@/lib/auth";
@@ -59,6 +60,7 @@ export async function followArtistAction(formData: FormData) {
 export async function unfollowArtistAction(formData: FormData) {
   const user = await requireUser();
   const artistId = String(formData.get("artistId") ?? "");
+  const redirectTo = String(formData.get("redirectTo") ?? "");
 
   await unfollowArtistForUser(user.id, artistId);
 
@@ -67,6 +69,10 @@ export async function unfollowArtistAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");
   revalidatePath("/recent");
+
+  if (redirectTo === "/artists") {
+    redirect("/artists", RedirectType.replace);
+  }
 }
 
 export async function syncFollowedArtistNowAction(formData: FormData) {
@@ -108,6 +114,9 @@ export async function importDeezerFollowsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   if (!isDeezerOAuthConfigured()) {
@@ -148,6 +157,9 @@ export async function importTidalFollowsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   const connection = await prisma.tidalConnection.findUnique({
@@ -184,6 +196,9 @@ export async function importLastfmArtistsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   if (!isLastfmConfigured()) {
