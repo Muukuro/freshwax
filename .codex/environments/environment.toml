@@ -3,9 +3,6 @@ version = 1
 name = "freshwax"
 
 [setup]
-script = ""
-
-[setup.darwin]
 script = ".codex/scripts/setup-worktree.sh"
 
 [[actions]]
