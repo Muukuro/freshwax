@@ -9,8 +9,27 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
-NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
-if [ "$NODE_MAJOR" -lt 20 ]; then
+NODE_VERSION="$(node --version)"
+NODE_VERSION="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_VERSION%%.*}"
+NODE_REST="${NODE_VERSION#*.}"
+NODE_MINOR="${NODE_REST%%.*}"
+
+case "$NODE_MAJOR" in
+  ''|*[!0-9]*)
+    echo "Could not parse Node.js version: $(node --version)" >&2
+    exit 1
+    ;;
+esac
+
+case "$NODE_MINOR" in
+  ''|*[!0-9]*)
+    echo "Could not parse Node.js version: $(node --version)" >&2
+    exit 1
+    ;;
+esac
+
+if [ "$NODE_MAJOR" -lt 20 ] || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 9 ]; }; then
   echo "Node.js 20.9 or newer is required. Current version: $(node --version)" >&2
   exit 1
 fi
