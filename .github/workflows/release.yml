@@ -10,10 +10,7 @@ permissions:
   packages: write
 
 env:
-  APP_URL: http://127.0.0.1:3000
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/freshwax?schema=public
   NEXT_TELEMETRY_DISABLED: "1"
-  REDIS_URL: redis://localhost:6379
 
 jobs:
   version:
@@ -48,6 +45,10 @@ jobs:
     needs: version
     if: needs.version.outputs.is_semver == 'true'
     runs-on: ubuntu-latest
+    env:
+      APP_URL: http://127.0.0.1:3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/freshwax?schema=public
+      REDIS_URL: redis://localhost:6379
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

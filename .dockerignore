@@ -1,0 +1,21 @@
+# Start from a closed build context. Re-include only files needed to build
+# and run the app image so local secrets, caches, editor state, and Git
+# metadata cannot be copied into published release images.
+*
+
+!package.json
+!package-lock.json
+!next.config.ts
+!next-env.d.ts
+!postcss.config.mjs
+!tsconfig.json
+!LICENSE
+
+!docker/
+!docker/**
+!prisma/
+!prisma/**
+!public/
+!public/**
+!src/
+!src/**
