@@ -114,6 +114,9 @@ export async function importDeezerFollowsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   if (!isDeezerOAuthConfigured()) {
@@ -154,6 +157,9 @@ export async function importTidalFollowsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   const connection = await prisma.tidalConnection.findUnique({
@@ -190,6 +196,9 @@ export async function importLastfmArtistsAction(
   _prevState: ImportResult | null,
   _formData: FormData,
 ): Promise<ImportResult> {
+  void _prevState;
+  void _formData;
+
   const user = await requireUser();
 
   if (!isLastfmConfigured()) {
