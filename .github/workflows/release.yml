@@ -135,7 +135,13 @@ jobs:
         shell: bash
         run: |
           notes_file="$(mktemp)"
+          generated_notes="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="${TAG_NAME}" \
+            -q .body)"
+
           {
+            echo "${generated_notes}"
+            echo
             echo "## Container image"
             echo
             echo '```bash'
