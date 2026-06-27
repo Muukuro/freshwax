@@ -47,7 +47,39 @@ Each user gets their own followed artists, recent-release feed, ignore state, no
 
 ## Quick Start
 
-### Run with Docker Compose
+### Run with the Published Docker Image
+
+Freshwax release images are published to GitHub Container Registry as:
+
+```text
+ghcr.io/muukuro/freshwax
+```
+
+For a released version, prefer an exact tag:
+
+```bash
+export FRESHWAX_IMAGE=ghcr.io/muukuro/freshwax:1.2.3
+```
+
+Download the image-based Compose file and start the stack:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compose.image.yml
+curl -fsSLo .env https://raw.githubusercontent.com/Muukuro/freshwax/main/.env.example
+docker compose -f docker-compose.image.yml up
+```
+
+Set at least `DATABASE_URL`, `REDIS_URL`, and `APP_URL` in `.env`. With the included Compose file, the local defaults are:
+
+```text
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
+REDIS_URL=redis://redis:6379
+APP_URL=http://127.0.0.1:3000
+```
+
+The image-based Compose file launches PostgreSQL, Redis, a first-run `prisma db push`, the web app, and the worker without requiring a source checkout.
+
+### Run from Source with Docker Compose
 
 1. Copy the environment template:
 
@@ -63,7 +95,7 @@ docker compose up --build
 
 3. Open [http://127.0.0.1:3000](http://127.0.0.1:3000)
 
-That launches:
+That builds the local source image and launches:
 
 - `postgres`
 - `redis`
@@ -147,6 +179,7 @@ These enable optional login, linking, or import flows. Core release tracking doe
 
 - The app uses Next.js standalone output in containers
 - `docker compose up` runs schema bootstrapping with `prisma db push` before app and worker startup
+- Published images are available from `ghcr.io/muukuro/freshwax`; use exact semver tags for repeatable production installs
 - Queue setup is intentionally lazy so `next build` does not create Redis connections at import time
 - The public calendar URL shape remains `/calendar/:token.ics`, backed by a rewrite to the App Router route
 - PWA support is served from the app itself: `/manifest.webmanifest`, generated app icons, and `/push-sw.js`. Browser push subscriptions and offline caching intentionally share that service worker URL.

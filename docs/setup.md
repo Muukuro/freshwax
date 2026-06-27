@@ -12,11 +12,15 @@ Freshwax works without any third-party provider credentials. PostgreSQL, Redis, 
 
 ## 1. Prerequisites
 
-Required:
+Required for source-based development:
 
 - Node.js 20.9.0 or newer and npm
 - PostgreSQL
 - Redis
+
+Required for image-based self-hosting:
+
+- Docker Engine or another Compose-compatible container runtime
 
 Recommended local baseline:
 
@@ -79,7 +83,35 @@ Apple Music appears in platform preferences, but the external auth callback flow
 - `DEFAULT_TIMEZONE`: Default timezone for new users
 - `TZ`: Optional process timezone fallback if `DEFAULT_TIMEZONE` is unset
 
-## 3. Callback URI Rules
+## 3. Running Published Images
+
+Freshwax release images are published as `ghcr.io/muukuro/freshwax`.
+
+Use exact semver image tags for repeatable installs:
+
+```bash
+export FRESHWAX_IMAGE=ghcr.io/muukuro/freshwax:1.2.3
+```
+
+Then run the image-based Compose file:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compose.image.yml
+curl -fsSLo .env https://raw.githubusercontent.com/Muukuro/freshwax/main/.env.example
+docker compose -f docker-compose.image.yml up
+```
+
+When using the included PostgreSQL and Redis services, set these values in `.env`:
+
+```text
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
+REDIS_URL=redis://redis:6379
+APP_URL=http://127.0.0.1:3000
+```
+
+The image Compose file runs the same app, worker, Redis, PostgreSQL, and first-run `prisma db push` bootstrap as the source Compose file. It only swaps `build: .` for the published Freshwax image.
+
+## 4. Callback URI Rules
 
 Freshwax derives callback URIs from `APP_URL`. Set `APP_URL` first, then register the matching absolute URLs with providers.
 
@@ -111,7 +143,7 @@ Notes:
 - For local Spotify development, use `127.0.0.1`, not `localhost`.
 - If you expose Freshwax behind a reverse proxy, `APP_URL` must still be the public origin users actually visit.
 
-## 4. Provider Setup
+## 5. Provider Setup
 
 The provider credentials below are optional. Freshwax can still track releases without them.
 
@@ -317,7 +349,7 @@ Current status:
 
 Do not spend time registering Apple callbacks unless you plan to extend the code. Today this is best treated as reserved configuration.
 
-## 5. Last.fm Setup
+## 6. Last.fm Setup
 
 Purpose in Freshwax:
 
@@ -335,7 +367,7 @@ Operator checklist:
 
 No callback URI is needed for Last.fm because this integration is API-key based, not OAuth-based.
 
-## 6. Browser Push Setup
+## 7. Browser Push Setup
 
 Purpose in Freshwax:
 
@@ -363,7 +395,7 @@ Important behavior:
 
 Freshwax uses `APP_URL` as the VAPID subject URL, so `APP_URL` should always be set to the canonical origin.
 
-## 7. Webhook Notification Setup
+## 8. Webhook Notification Setup
 
 Purpose in Freshwax:
 
@@ -407,7 +439,7 @@ Payload shape:
 
 If no delivery channels are configured, notification events are skipped rather than retried forever.
 
-## 8. Database and Schema Bootstrapping
+## 9. Database and Schema Bootstrapping
 
 Freshwax treats Prisma as the source of truth for the schema.
 
@@ -426,7 +458,7 @@ npm run prisma:seed
 
 If the background schema is missing, the worker will skip jobs until `prisma db push` has been run successfully.
 
-## 9. Run Modes
+## 10. Run Modes
 
 ### Mode A: Full Docker Compose stack
 
@@ -574,7 +606,7 @@ Notes:
 - Outside Docker, `npm run start` uses `next start`, which is fine for non-container deployments.
 - If you skip the worker in production, sync freshness and notification delivery degrade materially.
 
-## 10. Recommended Bring-Up Order
+## 11. Recommended Bring-Up Order
 
 For a clean first run:
 
@@ -588,7 +620,7 @@ For a clean first run:
 8. Start the app and worker in your preferred mode.
 9. Optionally run `npm run prisma:seed`.
 
-## 11. Verification Checklist
+## 12. Verification Checklist
 
 After setup, verify the basics:
 
@@ -615,7 +647,7 @@ Manual checks:
 - enable push notifications if VAPID keys are configured
 - verify webhook delivery if a webhook URL is configured
 
-## 12. Common Failure Modes
+## 13. Common Failure Modes
 
 ### OAuth redirect mismatch
 
@@ -658,7 +690,7 @@ Usually caused by:
 - provider is only partially implemented in Freshwax
 - the app registration is missing scopes or callback URIs
 
-## 13. Source References
+## 14. Source References
 
 These external docs are useful when provider console wording changes:
 
