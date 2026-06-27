@@ -156,3 +156,7 @@ The repo uses the default five-label triage vocabulary. See `docs/agents/triage-
 ### Domain docs
 
 This repo uses a single-context domain docs layout. See `docs/agents/domain.md`.
+
+### Releases
+
+Release requests such as "create a new patch release" must follow `docs/agents/release-process.md`, including semver bump checks, changelog updates, and release-tag guardrails.
