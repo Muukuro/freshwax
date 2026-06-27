@@ -85,57 +85,25 @@ Apple Music appears in platform preferences, but the external auth callback flow
 
 ## 3. Running Published Images
 
-Freshwax release images are published as `ghcr.io/muukuro/freshwax`.
-
-Use exact semver image tags for repeatable installs:
-
-```bash
-export FRESHWAX_IMAGE=ghcr.io/muukuro/freshwax:1.2.3
-```
-
-Then run the image-based Compose file:
+Run the image-based Compose file:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compose.image.yml
-docker compose -f docker-compose.image.yml up
+docker compose -f docker-compose.image.yml up -d
 ```
 
-The included Compose file wires the bundled PostgreSQL and Redis services with:
+That uses `ghcr.io/muukuro/freshwax:latest` and starts the app, worker, PostgreSQL, Redis, and first-run schema bootstrapping.
 
-```yaml
-environment:
-  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-  REDIS_URL: redis://redis:6379
-```
-
-For a custom Compose file or standalone container, pass the same required values yourself:
-
-```yaml
-environment:
-  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-  REDIS_URL: redis://redis:6379
-```
-
-or:
+For a standalone container with your own PostgreSQL and Redis services:
 
 ```bash
-docker run --rm -p 3000:3000 \
-  -e DATABASE_URL="postgresql://postgres:postgres@postgres:5432/freshwax?schema=public" \
-  -e REDIS_URL="redis://redis:6379" \
-  ghcr.io/muukuro/freshwax:1.2.3
+docker run -d --name freshwax -p 3000:3000 \
+  -e DATABASE_URL="postgresql://postgres:postgres@postgres-host:5432/freshwax?schema=public" \
+  -e REDIS_URL="redis://redis-host:6379" \
+  ghcr.io/muukuro/freshwax:latest
 ```
 
 `APP_URL` defaults to `http://127.0.0.1:3000`, which is enough for a local container reached through a normal `3000:3000` port mapping. Set `APP_URL` to the public origin, for example `https://freshwax.example.com`, when Freshwax is behind a reverse proxy or when you use calendar links, notifications, or OAuth callbacks.
-
-Add optional settings under `environment:` in Compose:
-
-```yaml
-environment:
-  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-  REDIS_URL: redis://redis:6379
-  APP_URL: https://freshwax.example.com
-  LASTFM_API_KEY: your-lastfm-api-key
-```
 
 The image Compose file runs the same app, worker, Redis, PostgreSQL, and first-run `prisma db push` bootstrap as the source Compose file. It only swaps `build: .` for the published Freshwax image.
 
