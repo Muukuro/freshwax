@@ -1,7 +1,7 @@
 services:
   freshwax:
     image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
-    restart: unless_stopped
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
@@ -15,7 +15,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
-    restart: unless_stopped
+    restart: unless-stopped
     environment:
       POSTGRES_DB: freshwax
       POSTGRES_USER: postgres
@@ -32,7 +32,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    restart: unless_stopped
+    restart: unless-stopped
     ports:
       - "6380:6379"
     volumes:
