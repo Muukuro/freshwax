@@ -92,7 +92,7 @@ curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compo
 docker compose -f docker-compose.image.yml up -d
 ```
 
-That uses `ghcr.io/muukuro/freshwax:latest` and starts the app, worker, PostgreSQL, Redis, and first-run schema bootstrapping.
+That uses `ghcr.io/muukuro/freshwax:latest` and starts PostgreSQL, Redis, and a single `freshwax` service. The Freshwax container applies the Prisma schema, starts the background worker, and serves the web app.
 
 For a standalone container with your own PostgreSQL and Redis services:
 
@@ -105,7 +105,11 @@ docker run -d --name freshwax -p 3000:3000 \
 
 `APP_URL` defaults to `http://127.0.0.1:3000`, which is enough for a local container reached through a normal `3000:3000` port mapping. Set `APP_URL` to the public origin, for example `https://freshwax.example.com`, when Freshwax is behind a reverse proxy or when you use calendar links, notifications, or OAuth callbacks.
 
-The image Compose file runs the same app, worker, Redis, PostgreSQL, and first-run `prisma db push` bootstrap as the source Compose file. It only swaps `build: .` for the published Freshwax image.
+The image Compose file runs the same Redis, PostgreSQL, and Freshwax container topology as the source Compose file. It only swaps `build: .` for the published Freshwax image.
+
+The Freshwax image runs `prisma db push` on startup by default. Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema bootstrapping is handled outside the container. Set `FRESHWAX_DISABLE_WORKER=1` only for intentionally app-only deployments where background sync and notifications can be unavailable.
+
+The Docker image includes a health check that calls `/api/health` inside the container. That endpoint verifies the Next.js server is responding and can query PostgreSQL.
 
 ## 4. Callback URI Rules
 
@@ -473,9 +477,7 @@ What starts:
 
 - `postgres`
 - `redis`
-- `db-init` running `npx prisma db push`
-- `app` running `node .next/standalone/server.js`
-- `worker` running `npx tsx src/worker.ts`
+- `freshwax` running `npx prisma db push`, the BullMQ worker, and the Next.js standalone server
 
 Open:
 
@@ -484,7 +486,7 @@ Open:
 Notes:
 
 - Compose maps PostgreSQL to `localhost:5432` and Redis to `localhost:6380`.
-- Inside the Compose network, app and worker talk to Redis using `redis://redis:6379`.
+- Inside the Compose network, Freshwax talks to Redis using `redis://redis:6379`.
 - This is the closest match to the intended self-hosted topology.
 
 ### Mode B: Local app + local worker, Dockerized Postgres/Redis

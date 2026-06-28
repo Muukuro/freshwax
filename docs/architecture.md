@@ -45,6 +45,7 @@
 - Calendar feeds are tokenized and stable, with deterministic UIDs based on release id plus token, and include both recent and upcoming date windows while respecting persistent settings.
 - Notification events are persisted per user/release/kind, scheduled in UTC using the user timezone, and fanned out into per-channel delivery records.
 - Full-catalog sync is app-driven: the worker maintains recurring scheduling, and authenticated app visits opportunistically enqueue a global sync when the watchlist is stale so the dashboard does not rely on a manual button.
+- The production Docker image defaults to one Freshwax service: startup applies the Prisma schema, then runs the web server and BullMQ worker under the same container lifecycle. This keeps self-hosted Compose installs simple while still allowing non-Docker process managers to run the app and worker separately.
 - Recurring sync includes startup jitter so self-hosted instances do not all wake up on the same exact interval boundary.
 - First-run onboarding is explicit: new users choose favorite platforms, default release visibility, and link behavior before they land in the main app shell.
 - The browser service worker remains at `/push-sw.js` so existing push subscription setup and app-wide PWA caching use one stable registration scope. It excludes API routes and private calendar feed URLs from runtime caching.
