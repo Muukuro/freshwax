@@ -1,7 +1,10 @@
 import { searchCatalogArtists } from "@/lib/catalog";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { normalizeName } from "@/lib/utils";
+import {
+  buildFollowedMusicBrainzArtistIdSet,
+  isMusicBrainzArtistFollowed,
+} from "@/lib/artist-follow-status";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -17,20 +20,20 @@ export async function GET(request: Request) {
     select: {
       artist: {
         select: {
-          canonicalName: true,
+          musicbrainzArtistId: true,
         },
       },
     },
   });
 
-  const followed = new Set(
-    followedArtists.map((entry) => normalizeName(entry.artist.canonicalName)),
+  const followed = buildFollowedMusicBrainzArtistIdSet(
+    followedArtists.map((entry) => entry.artist),
   );
 
   return Response.json(
     results.map((result) => ({
       ...result,
-      alreadyFollowing: followed.has(normalizeName(result.name)),
+      alreadyFollowing: isMusicBrainzArtistFollowed(followed, result.musicbrainzArtistId),
     })),
   );
 }

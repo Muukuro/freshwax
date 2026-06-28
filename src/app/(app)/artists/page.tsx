@@ -13,13 +13,16 @@ import { ImportForm } from "@/components/import-form";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { initialsForName } from "@/lib/artwork";
+import {
+  buildFollowedMusicBrainzArtistIdSet,
+  isMusicBrainzArtistFollowed,
+} from "@/lib/artist-follow-status";
 import { requireUser } from "@/lib/auth";
 import { searchCatalogArtists } from "@/lib/catalog";
 import { getFollowedArtists } from "@/lib/data";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
 import { formatTimestampInTimeZone } from "@/lib/timezone";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
-import { normalizeName } from "@/lib/utils";
 
 export default async function ArtistsPage({
   searchParams,
@@ -33,7 +36,7 @@ export default async function ArtistsPage({
   const query = params.q?.trim() ?? "";
   const results = query ? await searchCatalogArtists(query) : [];
   const lastfmConfigured = isLastfmConfigured();
-  const followedNames = new Set(followed.map((entry) => normalizeName(entry.canonicalName)));
+  const followedMusicBrainzArtistIds = buildFollowedMusicBrainzArtistIdSet(followed);
 
   return (
     <div className="page-stack">
@@ -133,6 +136,12 @@ export default async function ArtistsPage({
                         </span>
                       ) : null}
                       {artist.description ? <span>{artist.description}</span> : null}
+                      <span
+                        className="status-pill px-2 py-1"
+                        title={artist.musicbrainzArtistId}
+                      >
+                        MBID {artist.musicbrainzArtistId.slice(0, 8)}
+                      </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {artist.platformLinks.slice(0, 4).map((link) => (
@@ -146,7 +155,10 @@ export default async function ArtistsPage({
                       ))}
                     </div>
                   </div>
-                  {followedNames.has(normalizeName(artist.name)) ? (
+                  {isMusicBrainzArtistFollowed(
+                    followedMusicBrainzArtistIds,
+                    artist.musicbrainzArtistId,
+                  ) ? (
                     <span className="status-pill px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-200">
                       Following
                     </span>

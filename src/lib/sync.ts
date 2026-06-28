@@ -506,21 +506,6 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
     throw new Error("Artist name could not be normalized");
   }
 
-  const mapping =
-    artistResult.sourceProvider && artistResult.providerArtistId
-      ? await prisma.artistProviderMapping.findUnique({
-          where: {
-            provider_providerArtistId: {
-              provider: artistResult.sourceProvider,
-              providerArtistId: artistResult.providerArtistId,
-            },
-          },
-          include: {
-            artist: true,
-          },
-        })
-      : null;
-
   const existingArtistByMusicBrainzId = await prisma.artist.findUnique({
     where: {
       musicbrainzArtistId: artistResult.musicbrainzArtistId,
@@ -529,7 +514,6 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
 
   const artist =
     existingArtistByMusicBrainzId ??
-    mapping?.artist ??
     (await prisma.artist.create({
       data: {
         musicbrainzArtistId: artistResult.musicbrainzArtistId,
@@ -541,7 +525,7 @@ export async function followArtistForUser(userId: string, artistResult: ArtistSe
       },
     }));
 
-  if (mapping?.artist || existingArtistByMusicBrainzId) {
+  if (existingArtistByMusicBrainzId) {
     await prisma.artist.update({
       where: { id: artist.id },
       data: {
