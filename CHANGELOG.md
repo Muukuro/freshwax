@@ -18,6 +18,18 @@ Freshwax uses semantic versioning with release tags named `vMAJOR.MINOR.PATCH`.
 
 - Use for backward-compatible bug fixes, documentation corrections, dependency maintenance, and small operational fixes.
 
+## v0.0.2 - 2026-06-28
+
+### Changed
+
+- Simplified container startup so one Freshwax service applies the schema, runs the worker, and serves the web app.
+- Added restart policies and a web health check for Docker-based deployments.
+
+### Fixed
+
+- Fixed same-name artist search and follow handling by matching followed artists with MusicBrainz artist ids instead of normalized names.
+- Fixed the Docker Compose restart policy syntax for the local and published-image compose files.
+
 ## v0.0.1 - 2026-06-28
 
 ### Added
