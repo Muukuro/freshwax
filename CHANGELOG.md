@@ -43,3 +43,5 @@ When cutting a release, move relevant bullets from `Unreleased` into a new versi
 ```
 
 Keep unreleased entries concise and user/operator focused. Link pull requests or issues when the reference helps explain the change.
+
+GitHub Release notes are generated for semver tags and should stay aligned with the versioned changelog entry. Each release should make the version clear and include the exact published image tag, for example `ghcr.io/muukuro/freshwax:1.2.3`, so operators can pin repeatable installs.
