@@ -17,6 +17,7 @@ import { normalizeName } from "@/lib/utils";
 
 type ArtistWatchlistEntry = {
   artistId: string;
+  musicbrainzArtistId: string;
   canonicalName: string;
   imageUrl: string | null;
   deezerFans: number | null;
@@ -96,6 +97,12 @@ export function ArtistWatchlist({
                     ) : null}
                     <span className="status-pill px-2 py-1">
                       {formatInteger(follow.knownReleaseCount)} known releases
+                    </span>
+                    <span
+                      className="status-pill px-2 py-1"
+                      title={follow.musicbrainzArtistId}
+                    >
+                      MBID {follow.musicbrainzArtistId.slice(0, 8)}
                     </span>
                   </div>
                 </div>

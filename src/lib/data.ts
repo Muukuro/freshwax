@@ -237,6 +237,7 @@ function addArtistPlatformLinks(
 ) {
   return {
     artistId: artist.id,
+    musicbrainzArtistId: artist.musicbrainzArtistId,
     canonicalName: artist.canonicalName,
     imageUrl: artist.imageUrl,
     deezerFans: artist.deezerFans,

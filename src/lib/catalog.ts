@@ -30,6 +30,25 @@ export type CatalogArtistSearchResult = {
   }>;
 };
 
+function getAmbiguousNormalizedNames(
+  artists: Array<{ name: string }>,
+) {
+  const counts = new Map<string, number>();
+
+  for (const artist of artists) {
+    const normalizedName = normalizeName(artist.name);
+    if (!normalizedName) continue;
+
+    counts.set(normalizedName, (counts.get(normalizedName) ?? 0) + 1);
+  }
+
+  return new Set(
+    [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([normalizedName]) => normalizedName),
+  );
+}
+
 async function searchMusicBrainzArtists(query: string) {
   const artists = await searchMusicBrainzProviderArtists(query, 10);
 
@@ -62,9 +81,13 @@ export async function searchCatalogArtists(query: string): Promise<CatalogArtist
   const deezerByName = new Map(
     deezerResults.map((result) => [normalizeName(result.name), result]),
   );
+  const ambiguousMusicBrainzNames = getAmbiguousNormalizedNames(musicBrainzResults);
 
   const merged = musicBrainzResults.map((artist) => {
-    const deezerMatch = deezerByName.get(normalizeName(artist.name));
+    const normalizedName = normalizeName(artist.name);
+    const deezerMatch = ambiguousMusicBrainzNames.has(normalizedName)
+      ? undefined
+      : deezerByName.get(normalizedName);
     const providerMappings = deezerMatch
       ? [
           {

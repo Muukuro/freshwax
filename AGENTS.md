@@ -148,6 +148,7 @@ Keep docs aligned with the actual code, not intended future state.
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `Muukuro/freshwax`. See `docs/agents/issue-tracker.md`.
+When working through an issue, prepare a pull request that clearly links back to the issue. Ask the user for confirmation before creating the PR unless they have already explicitly requested PR creation.
 
 ### Triage labels
 
