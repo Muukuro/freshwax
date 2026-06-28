@@ -1,6 +1,7 @@
 services:
   freshwax:
     build: .
+    restart: unless_stopped
     env_file:
       - .env
     environment:
@@ -16,6 +17,7 @@ services:
 
   postgres:
     image: postgres:17-alpine
+    restart: unless_stopped
     environment:
       POSTGRES_DB: freshwax
       POSTGRES_USER: postgres
@@ -32,6 +34,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless_stopped
     ports:
       - "6380:6379"
     volumes:
