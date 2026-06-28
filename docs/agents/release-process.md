@@ -40,6 +40,18 @@ Keep `CHANGELOG.md` current while work is merged:
 
 If a change has no user, operator, security, or compatibility impact, it can be omitted from the changelog.
 
+## GitHub Release Notes
+
+Semver tag pushes create or update the GitHub Release for that tag when the release workflow is present. The release notes are generated from GitHub commit and pull request metadata, then the workflow appends the exact container image pull command.
+
+Before creating the tag, make sure the changelog and merged pull request titles are useful enough for operators to understand what changed. The GitHub Release for `vMAJOR.MINOR.PATCH` must make the released version clear and must reference the matching image tag:
+
+```bash
+docker pull ghcr.io/muukuro/freshwax:MAJOR.MINOR.PATCH
+```
+
+Use exact semver image tags in release notes and operator instructions. Moving tags such as `latest`, `MAJOR`, and `MAJOR.MINOR` are convenience tags, not the repeatable release identifier.
+
 ## Creating a Release
 
 1. Inspect the commits and changelog entries since the previous release tag.
