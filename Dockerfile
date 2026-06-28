@@ -39,5 +39,7 @@ COPY --from=builder /app/.next/standalone ./.next/standalone
 RUN chmod +x ./docker/entrypoint.sh \
   && rm -rf /app/.next/standalone/.next/cache
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
 ENTRYPOINT ["./docker/entrypoint.sh"]
-CMD ["node", ".next/standalone/server.js"]
+CMD ["node", "docker/start-production.mjs"]

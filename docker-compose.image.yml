@@ -1,37 +1,14 @@
 services:
-  db-init:
+  freshwax:
     image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
-    command: npx prisma db push
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  app:
-    image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
-    command: node .next/standalone/server.js
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
     depends_on:
-      db-init:
-        condition: service_completed_successfully
-      redis:
+      postgres:
         condition: service_healthy
-
-  worker:
-    image: ${FRESHWAX_IMAGE:-ghcr.io/muukuro/freshwax:latest}
-    command: npx tsx src/worker.ts
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
 

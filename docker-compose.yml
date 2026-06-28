@@ -1,40 +1,16 @@
 services:
-  db-init:
+  freshwax:
     build: .
-    command: npx prisma db push
     env_file:
       - .env
     environment:
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  app:
-    build: .
-    command: node .next/standalone/server.js
-    env_file:
-      - .env
-    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/freshwax?schema=public
       REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
     depends_on:
-      db-init:
-        condition: service_completed_successfully
-      redis:
+      postgres:
         condition: service_healthy
-
-  worker:
-    build: .
-    command: npx tsx src/worker.ts
-    env_file:
-      - .env
-    environment:
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      db-init:
-        condition: service_completed_successfully
       redis:
         condition: service_healthy
 

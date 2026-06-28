@@ -33,7 +33,7 @@ Each user gets their own followed artists, recent-release feed, ignore state, no
 - Optional Last.fm import to seed a watchlist from listening history
 - Optional external login and account-link flows for supported providers
 - Background sync worker with lazy queue setup so app builds do not connect to Redis during import
-- Docker-based runtime with PostgreSQL, Redis, web app, worker, and first-run schema bootstrapping
+- Docker-based runtime with PostgreSQL, Redis, and one Freshwax service that runs schema bootstrapping, the web app, and the worker
 
 ## Stack
 
@@ -56,7 +56,7 @@ curl -fsSLO https://raw.githubusercontent.com/Muukuro/freshwax/main/docker-compo
 docker compose -f docker-compose.image.yml up -d
 ```
 
-That uses `ghcr.io/muukuro/freshwax:latest` and starts the app, worker, PostgreSQL, Redis, and first-run schema bootstrapping.
+That uses `ghcr.io/muukuro/freshwax:latest` and starts PostgreSQL, Redis, and a single `freshwax` service. The Freshwax container applies the Prisma schema, starts the background worker, and serves the web app.
 
 If you already have PostgreSQL and Redis:
 
@@ -89,9 +89,7 @@ That builds the local source image and launches:
 
 - `postgres`
 - `redis`
-- `db-init` running `prisma db push`
-- the Next.js app
-- the BullMQ worker
+- `freshwax`, which runs `prisma db push`, the Next.js app, and the BullMQ worker
 
 Freshwax works without third-party provider credentials. For a minimal setup, `DATABASE_URL`, `REDIS_URL`, and `APP_URL` are the only required values.
 
@@ -168,8 +166,11 @@ These enable optional login, linking, or import flows. Core release tracking doe
 ## Deployment Notes
 
 - The app uses Next.js standalone output in containers
-- `docker compose up` runs schema bootstrapping with `prisma db push` before app and worker startup
+- `docker compose up` starts one `freshwax` container that runs schema bootstrapping with `prisma db push`, then starts the worker and web app
 - Published images are available from `ghcr.io/muukuro/freshwax`; use exact semver tags for repeatable production installs
+- The Docker image health check calls `/api/health`, which verifies that the web app can query PostgreSQL
+- Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema bootstrapping is handled outside the container
+- Set `FRESHWAX_DISABLE_WORKER=1` only for intentionally app-only deployments where background sync and notifications can be unavailable
 - Queue setup is intentionally lazy so `next build` does not create Redis connections at import time
 - The public calendar URL shape remains `/calendar/:token.ics`, backed by a rewrite to the App Router route
 - PWA support is served from the app itself: `/manifest.webmanifest`, generated app icons, and `/push-sw.js`. Browser push subscriptions and offline caching intentionally share that service worker URL.
