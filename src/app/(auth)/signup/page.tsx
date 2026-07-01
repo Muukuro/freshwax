@@ -1,4 +1,5 @@
 import { AuthCard } from "@/components/auth-card";
+import { BrandLogo } from "@/components/brand-logo";
 import { signUp } from "@/app/actions/auth";
 import { getExternalAuthAvailabilityNote, isExternalAuthImplemented } from "@/lib/external-auth";
 import { STREAMING_PROVIDERS, getProviderCapability, getProviderLabel, isProviderConfigured } from "@/lib/platforms";
@@ -31,7 +32,7 @@ export default async function SignupPage({
       <div className="auth-grid">
         <section className="auth-promo hidden md:flex md:flex-col md:justify-between">
           <div>
-            <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">Freshwax</p>
+            <BrandLogo size="hero" />
             <h1 className="font-display mt-6 max-w-lg text-6xl leading-[0.92] tracking-[-0.05em] text-white">
               Your own release desk, no one else&apos;s feed.
             </h1>

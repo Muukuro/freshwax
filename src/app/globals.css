@@ -180,6 +180,7 @@ body::before {
     background: rgba(150, 29, 29, 0.26);
     color: #ffd2d2;
   }
+
 }
 
 a {
@@ -395,6 +396,29 @@ input {
 
 .brand-wordmark {
   color: var(--brand);
+}
+
+.brand-logo {
+  color: var(--brand);
+  filter: drop-shadow(0 7px 18px rgba(215, 255, 100, 0.14));
+}
+
+.brand-logo__image {
+  display: block;
+}
+
+.brand-logo__image--dark {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .brand-logo__image--light {
+    display: none;
+  }
+
+  .brand-logo__image--dark {
+    display: block;
+  }
 }
 
 .mobile-menu-toggle {

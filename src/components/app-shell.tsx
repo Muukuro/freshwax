@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { CalendarClock, Disc3, LayoutDashboard, Menu, Search, Settings, X } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { BrandLogo } from "@/components/brand-logo";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -35,9 +36,7 @@ export function AppShell({
             <div>
               <div>
                 <p className="eyebrow">Private release tracker</p>
-                <p className="brand-wordmark font-display mt-3 text-3xl font-semibold tracking-[-0.04em]">
-                  Freshwax
-                </p>
+                <BrandLogo className="mt-3" size="sidebar" />
                 <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
                   A calm desk for fresh releases, future dates, and the artists you follow.
                 </p>
@@ -84,9 +83,7 @@ export function AppShell({
               <div className="flex min-w-0 items-center gap-3">
                 <div>
                   <p className="eyebrow">Private release tracker</p>
-                  <p className="brand-wordmark font-display text-xl font-semibold tracking-[-0.03em]">
-                    Freshwax
-                  </p>
+                  <BrandLogo className="mt-1" size="mobile" />
                 </div>
               </div>
               <button

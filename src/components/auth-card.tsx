@@ -36,8 +36,7 @@ export function AuthCard({
 }) {
   return (
     <div className="panel mx-auto w-full max-w-md p-7 md:p-8">
-      <p className="brand-wordmark font-display text-lg font-semibold tracking-[-0.03em]">Freshwax</p>
-      <h1 className="font-display mt-4 text-5xl leading-none tracking-[-0.04em] text-[var(--text)]">
+      <h1 className="font-display text-5xl leading-none tracking-[-0.04em] text-[var(--text)]">
         {title}
       </h1>
       <p className="mt-4 max-w-sm text-sm leading-7 text-[var(--muted)]">{subtitle}</p>
