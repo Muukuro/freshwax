@@ -6,7 +6,7 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "background_color": "#08111B",
+  "background_color": "#2d6df6",
   "theme_color": "#2d6df6",
   "categories": ["music", "productivity"],
   "icons": [
