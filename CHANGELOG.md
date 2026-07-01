@@ -18,6 +18,12 @@ Freshwax uses semantic versioning with release tags named `vMAJOR.MINOR.PATCH`.
 
 - Use for backward-compatible bug fixes, documentation corrections, dependency maintenance, and small operational fixes.
 
+## v0.0.4 - 2026-07-01
+
+### Changed
+
+- Refreshed the app theme background color and install icons for a cleaner branded app appearance.
+
 ## v0.0.3 - 2026-07-01
 
 ### Changed
