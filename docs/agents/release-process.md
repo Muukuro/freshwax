@@ -14,12 +14,12 @@ Before creating or recommending a release tag, verify the release candidate has 
 
 If schema or setup behavior changed in the release, also verify:
 
-- `npx prisma db push`
+- `npx prisma migrate deploy`
 - `npm run prisma:seed`
 
 The schema-upgrade check must create a populated database from the previous
 release tag and apply the candidate schema in place. A clean-database
-`prisma db push` is not sufficient evidence that an existing installation can
+`prisma migrate deploy` against a clean database is not sufficient evidence that an existing installation can
 upgrade safely.
 
 Do not create a release tag if required checks are failing or unrun without explicitly telling the maintainer what is missing.
@@ -28,7 +28,7 @@ Do not create a release tag if required checks are failing or unrun without expl
 
 Use the largest required bump from the included changes:
 
-- Major: breaking operator behavior, incompatible environment variable changes, removed or renamed public routes such as `/calendar/:token.ics`, incompatible database changes, manual migrations that replace the current first-run `prisma db push` flow, or removed user workflows.
+- Major: breaking operator behavior, incompatible environment variable changes, removed or renamed public routes such as `/calendar/:token.ics`, incompatible database changes or migrations requiring manual operator intervention, or removed user workflows.
 - Minor: backward-compatible product features, new optional provider integrations, new release/feed/calendar capabilities, new documented operator features, or new background jobs that preserve existing setup.
 - Patch: bug fixes, reliability fixes, documentation-only updates, dependency maintenance that does not change operator requirements, and internal refactors with no intended behavior change.
 

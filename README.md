@@ -89,7 +89,7 @@ That builds the local source image and launches:
 
 - `postgres`
 - `redis`
-- `freshwax`, which applies safe compatibility preparation, runs `prisma db push`, and starts the Next.js app and BullMQ worker
+- `freshwax`, which baselines legacy installations, deploys versioned Prisma migrations, and starts the Next.js app and BullMQ worker
 
 Freshwax works without third-party provider credentials. For a minimal setup, `DATABASE_URL`, `REDIS_URL`, and `APP_URL` are the only required values.
 
@@ -100,7 +100,7 @@ If you want a local demo account:
 ```bash
 npm install
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 npm run prisma:seed
 ```
 
@@ -122,7 +122,7 @@ Then run the app and worker locally:
 ```bash
 npm install
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 npm run dev:all
 ```
 
@@ -166,10 +166,10 @@ These enable optional login, linking, or import flows. Core release tracking doe
 ## Deployment Notes
 
 - The app uses Next.js standalone output in containers
-- `docker compose up` starts one `freshwax` container that applies safe compatibility preparation, runs schema bootstrapping with `prisma db push`, then starts the worker and web app
+- `docker compose up` starts one `freshwax` container that baselines legacy installations, deploys versioned Prisma migrations, then starts the worker and web app
 - Published images are available from `ghcr.io/muukuro/freshwax`; use exact semver tags for repeatable production installs
 - The Docker image health check calls `/api/health`, which verifies that the web app can query PostgreSQL
-- Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema bootstrapping is handled outside the container
+- Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema migrations are handled outside the container (the legacy variable name is preserved for compatibility)
 - Set `FRESHWAX_DISABLE_WORKER=1` only for intentionally app-only deployments where background sync and notifications can be unavailable
 - Queue setup is intentionally lazy so `next build` does not create Redis connections at import time
 - The public calendar URL shape remains `/calendar/:token.ics`, backed by a rewrite to the App Router route
@@ -199,7 +199,7 @@ npx prisma generate
 If schema or setup behavior changes, also run:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 npm run prisma:seed
 ```
 

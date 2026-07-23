@@ -87,6 +87,9 @@ jobs:
       - name: Verify populated database upgrade
         run: npm run test:schema-upgrade
 
+      - name: Verify clean database migration
+        run: npm run test:schema-upgrade -- --empty
+
       - name: Lint
         run: npm run lint
 

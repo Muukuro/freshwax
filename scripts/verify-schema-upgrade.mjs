@@ -9,11 +9,14 @@ if (!databaseUrl) {
 }
 
 const requestedRef = process.argv[2];
+const startsEmpty = requestedRef === "--empty";
 const upgradeFromRef =
-  requestedRef ??
-  execFileSync("git", ["describe", "--tags", "--abbrev=0", "HEAD^"], {
-    encoding: "utf8",
-  }).trim();
+  startsEmpty
+    ? null
+    : requestedRef ??
+      execFileSync("git", ["describe", "--tags", "--abbrev=0", "HEAD^"], {
+        encoding: "utf8",
+      }).trim();
 const temporaryDirectory = mkdtempSync(join(tmpdir(), "freshwax-upgrade-"));
 const previousSchemaPath = join(temporaryDirectory, "schema.prisma");
 
@@ -28,45 +31,43 @@ function prisma(args, options = {}) {
 }
 
 try {
-  const previousSchema = execFileSync(
-    "git",
-    ["show", `${upgradeFromRef}:prisma/schema.prisma`],
-    { encoding: "utf8" },
-  );
-  writeFileSync(previousSchemaPath, previousSchema);
-
   prisma(["db", "execute", "--schema", "prisma/schema.prisma", "--stdin"], {
     input: 'DROP SCHEMA IF EXISTS "public" CASCADE; CREATE SCHEMA "public";',
   });
-  prisma(["db", "push", "--skip-generate", "--schema", previousSchemaPath]);
-  prisma(["db", "execute", "--schema", "prisma/schema.prisma", "--stdin"], {
-    input: `
-      INSERT INTO "Release" (
-        "id", "title", "normalizedTitle", "releaseDate", "updatedAt"
-      ) VALUES (
-        'upgrade-fixture-release',
-        'Upgrade Fixture',
-        'upgrade fixture',
-        '2026-01-01T00:00:00.000Z',
-        CURRENT_TIMESTAMP
-      );
-    `,
-  });
 
-  prisma([
-    "db",
-    "execute",
-    "--schema",
-    "prisma/schema.prisma",
-    "--file",
-    "prisma/upgrades/before-db-push.sql",
-  ]);
-  prisma(["db", "push", "--skip-generate"]);
+  if (!startsEmpty) {
+    const previousSchema = execFileSync(
+      "git",
+      ["show", `${upgradeFromRef}:prisma/schema.prisma`],
+      { encoding: "utf8" },
+    );
+    writeFileSync(previousSchemaPath, previousSchema);
+    prisma(["db", "push", "--skip-generate", "--schema", previousSchemaPath]);
+    prisma(["db", "execute", "--schema", "prisma/schema.prisma", "--stdin"], {
+      input: `
+        INSERT INTO "Release" (
+          "id", "title", "normalizedTitle", "releaseDate", "updatedAt"
+        ) VALUES (
+          'upgrade-fixture-release',
+          'Upgrade Fixture',
+          'upgrade fixture',
+          '2026-01-01T00:00:00.000Z',
+          CURRENT_TIMESTAMP
+        );
+      `,
+    });
+  }
+
+  execFileSync("node", ["scripts/prepare-prisma-migrations.mjs"], {
+    env: process.env,
+    stdio: "inherit",
+  });
+  prisma(["migrate", "deploy"]);
   prisma(["db", "execute", "--schema", "prisma/schema.prisma", "--stdin"], {
     input: `
       DO $$
       BEGIN
-        IF NOT EXISTS (
+        IF ${startsEmpty ? "FALSE" : "TRUE"} AND NOT EXISTS (
           SELECT 1
           FROM "Release"
           WHERE "id" = 'upgrade-fixture-release'
@@ -83,12 +84,29 @@ try {
         ) THEN
           RAISE EXCEPTION 'schema upgrade did not create the release identity index';
         END IF;
+
+        IF (
+          SELECT COUNT(*)
+          FROM "_prisma_migrations"
+          WHERE "finished_at" IS NOT NULL
+            AND "rolled_back_at" IS NULL
+            AND "migration_name" IN (
+              '20260628000000_baseline',
+              '20260723000000_add_release_group_mbid'
+            )
+        ) <> 2 THEN
+          RAISE EXCEPTION 'schema upgrade did not record both migrations';
+        END IF;
       END
       $$;
     `,
   });
 
-  console.log(`Verified populated schema upgrade from ${upgradeFromRef}.`);
+  console.log(
+    startsEmpty
+      ? "Verified clean schema migration."
+      : `Verified populated schema upgrade from ${upgradeFromRef}.`,
+  );
 } finally {
   rmSync(temporaryDirectory, { recursive: true, force: true });
 }

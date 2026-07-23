@@ -107,7 +107,7 @@ docker run -d --name freshwax -p 3000:3000 \
 
 The image Compose file runs the same Redis, PostgreSQL, and Freshwax container topology as the source Compose file. It only swaps `build: .` for the published Freshwax image.
 
-The Freshwax image runs `prisma db push` on startup by default. Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema bootstrapping is handled outside the container. Set `FRESHWAX_DISABLE_WORKER=1` only for intentionally app-only deployments where background sync and notifications can be unavailable.
+The Freshwax image baselines pre-migration installations and runs `prisma migrate deploy` on startup by default. Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema migrations are handled outside the container; the legacy variable name is preserved for compatibility. Set `FRESHWAX_DISABLE_WORKER=1` only for intentionally app-only deployments where background sync and notifications can be unavailable.
 
 The Docker image includes a health check that calls `/api/health` inside the container. That endpoint verifies the Next.js server is responding and can query PostgreSQL.
 
@@ -447,7 +447,7 @@ For first-time setup:
 
 ```bash
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 ```
 
 Optional local demo data:
@@ -456,7 +456,7 @@ Optional local demo data:
 npm run prisma:seed
 ```
 
-If the background schema is missing, the worker will skip jobs until `prisma db push` has been run successfully.
+If the background schema is missing, the worker will skip jobs until `prisma migrate deploy` has been run successfully.
 
 ## 10. Run Modes
 
@@ -477,7 +477,7 @@ What starts:
 
 - `postgres`
 - `redis`
-- `freshwax` running `npx prisma db push`, the BullMQ worker, and the Next.js standalone server
+- `freshwax` running `npx prisma migrate deploy`, the BullMQ worker, and the Next.js standalone server
 
 Open:
 
@@ -507,7 +507,7 @@ Then in another shell:
 ```bash
 npm install
 npx prisma generate
-npx prisma db push
+npx prisma migrate deploy
 npm run dev:all
 ```
 
@@ -583,7 +583,7 @@ npm run build
 Initialize schema:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 ```
 
 Start the web app:
@@ -614,7 +614,7 @@ For a clean first run:
 4. If you need browser push, generate and add VAPID keys.
 5. If you need outbound webhooks, set the webhook URL and secret.
 6. Run `npx prisma generate`.
-7. Run `npx prisma db push`.
+7. Run `npx prisma migrate deploy`.
 8. Start the app and worker in your preferred mode.
 9. Optionally run `npm run prisma:seed`.
 
@@ -632,7 +632,7 @@ npm run build
 If you changed schema or are bootstrapping a fresh database, also run:
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
 npm run prisma:seed
 ```
 

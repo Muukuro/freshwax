@@ -35,6 +35,7 @@ RUN npx prisma generate \
 COPY tsconfig.json ./
 COPY src ./src
 COPY docker ./docker
+COPY scripts ./scripts
 COPY --from=builder /app/.next/standalone ./.next/standalone
 RUN chmod +x ./docker/entrypoint.sh \
   && rm -rf /app/.next/standalone/.next/cache
