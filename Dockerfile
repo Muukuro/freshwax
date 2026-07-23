@@ -6,7 +6,15 @@ RUN apt-get update \
 
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN node -e "const lock = require('./package-lock.json'); const prisma = lock.packages['node_modules/prisma']?.version; const client = lock.packages['node_modules/@prisma/client']?.version; if (!prisma || !client || prisma !== client) { throw new Error(\`Prisma CLI (\${prisma ?? 'missing'}) and @prisma/client (\${client ?? 'missing'}) must resolve to the same version\`); }" \
+  && npm ci
+
+FROM base AS prisma-tool
+COPY package-lock.json ./
+RUN PRISMA_VERSION="$(node -p "require('./package-lock.json').packages['node_modules/prisma'].version")" \
+  && npm install --prefix /opt/prisma-cli --omit=dev --no-audit --no-fund --no-package-lock "prisma@${PRISMA_VERSION}" \
+  && npm cache clean --force \
+  && rm -rf /root/.npm
 
 FROM deps AS builder
 COPY . .
@@ -18,6 +26,13 @@ RUN APP_URL="$BUILD_APP_URL" \
   DATABASE_URL="$BUILD_DATABASE_URL" \
   REDIS_URL="$BUILD_REDIS_URL" \
   npm run build
+RUN npx esbuild src/worker.ts \
+  --bundle \
+  --platform=node \
+  --format=cjs \
+  --target=node24 \
+  --external:@prisma/client \
+  --outfile=.next/standalone/worker.cjs
 RUN mkdir -p .next/standalone/.next \
   && cp -R .next/static .next/standalone/.next/static \
   && cp -R public .next/standalone/public
@@ -25,18 +40,11 @@ RUN mkdir -p .next/standalone/.next \
 FROM base AS runner
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev \
-  && npm cache clean --force \
-  && rm -rf /root/.npm /app/node_modules/.cache
+COPY --from=prisma-tool /opt/prisma-cli /opt/prisma-cli
 COPY prisma ./prisma
-RUN npx prisma generate \
-  && rm -rf /root/.npm /app/node_modules/.cache
-COPY tsconfig.json ./
-COPY src ./src
 COPY docker ./docker
-COPY scripts ./scripts
 COPY --from=builder /app/.next/standalone ./.next/standalone
+COPY scripts/prepare-prisma-migrations.mjs ./.next/standalone/scripts/prepare-prisma-migrations.mjs
 RUN chmod +x ./docker/entrypoint.sh \
   && rm -rf /app/.next/standalone/.next/cache
 EXPOSE 3000

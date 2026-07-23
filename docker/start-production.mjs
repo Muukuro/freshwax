@@ -53,12 +53,16 @@ process.on("SIGTERM", () => forwardSignal("SIGTERM"));
 process.on("SIGINT", () => forwardSignal("SIGINT"));
 
 if (process.env.FRESHWAX_SKIP_DB_PUSH !== "1") {
+  const prismaCli = "/opt/prisma-cli/node_modules/.bin/prisma";
   const preparation = spawnSync(
     "node",
-    ["scripts/prepare-prisma-migrations.mjs"],
+    [".next/standalone/scripts/prepare-prisma-migrations.mjs"],
     {
       stdio: "inherit",
-      env: process.env,
+      env: {
+        ...process.env,
+        PRISMA_CLI_PATH: prismaCli,
+      },
     },
   );
 
@@ -66,7 +70,7 @@ if (process.env.FRESHWAX_SKIP_DB_PUSH !== "1") {
     process.exit(preparation.status ?? 1);
   }
 
-  const result = spawnSync("npx", ["prisma", "migrate", "deploy"], {
+  const result = spawnSync(prismaCli, ["migrate", "deploy"], {
     stdio: "inherit",
     env: process.env,
   });
@@ -77,7 +81,7 @@ if (process.env.FRESHWAX_SKIP_DB_PUSH !== "1") {
 }
 
 if (process.env.FRESHWAX_DISABLE_WORKER !== "1") {
-  startProcess("Freshwax worker", "npx", ["tsx", "src/worker.ts"]);
+  startProcess("Freshwax worker", "node", [".next/standalone/worker.cjs"]);
 }
 
 startProcess("Freshwax web server", "node", [".next/standalone/server.js"]);

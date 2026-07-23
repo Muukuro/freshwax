@@ -137,6 +137,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Build and publish Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -148,6 +149,49 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ needs.version.outputs.version }}
+
+      - name: Report compressed image size
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_NAME: ${{ steps.image.outputs.name }}
+        shell: bash
+        run: |
+          index_file="$(mktemp)"
+          manifest_file="$(mktemp)"
+          docker buildx imagetools inspect \
+            "${IMAGE_NAME}@${IMAGE_DIGEST}" \
+            --raw > "${index_file}"
+
+          if jq -e '.layers' "${index_file}" >/dev/null; then
+            cp "${index_file}" "${manifest_file}"
+          else
+            platform_digest="$(
+              jq -r '
+                first(
+                  .manifests[]
+                  | select(.platform.os != "unknown")
+                  | .digest
+                )
+              ' "${index_file}"
+            )"
+            test -n "${platform_digest}"
+            docker buildx imagetools inspect \
+              "${IMAGE_NAME}@${platform_digest}" \
+              --raw > "${manifest_file}"
+          fi
+
+          {
+            echo "## Container image size"
+            echo
+            echo "| Layer | Compressed size |"
+            echo "| --- | ---: |"
+            jq -r '.layers[] | [.digest[7:19], .size] | @tsv' "${manifest_file}" |
+              while IFS=$'\t' read -r digest size; do
+                printf '| `%s` | %.2f MB |\n' "${digest}" "$(awk -v bytes="${size}" 'BEGIN { print bytes / 1000 / 1000 }')"
+              done
+            total_bytes="$(jq '[.layers[].size] | add' "${manifest_file}")"
+            printf '| **Total** | **%.2f MB** |\n' "$(awk -v bytes="${total_bytes}" 'BEGIN { print bytes / 1000 / 1000 }')"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Create or update GitHub release
         env:

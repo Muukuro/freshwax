@@ -7,16 +7,18 @@ const RELEASE_IDENTITY_MIGRATION =
   "20260723000000_add_release_group_mbid";
 
 const prisma = new PrismaClient();
+const prismaCli = process.env.PRISMA_CLI_PATH;
 
 function markApplied(migrationName) {
-  execFileSync(
-    "npx",
-    ["prisma", "migrate", "resolve", "--applied", migrationName],
-    {
-      env: process.env,
-      stdio: "inherit",
-    },
-  );
+  const command = prismaCli ?? "npx";
+  const args = prismaCli
+    ? ["migrate", "resolve", "--applied", migrationName]
+    : ["prisma", "migrate", "resolve", "--applied", migrationName];
+
+  execFileSync(command, args, {
+    env: process.env,
+    stdio: "inherit",
+  });
 }
 
 try {
