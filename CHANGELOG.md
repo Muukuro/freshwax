@@ -17,7 +17,20 @@ Freshwax uses semantic versioning with release tags named `vMAJOR.MINOR.PATCH`.
 ### Patch
 
 - Use for backward-compatible bug fixes, documentation corrections, dependency maintenance, and small operational fixes.
-- Prevent duplicate releases from reappearing when MusicBrainz and provider dates differ, and add a safe release-detail merge action that preserves user and notification history.
+
+## v0.1.0 - 2026-07-23
+
+### Added
+
+- Added scalable followed-artist browsing with search, sort, pagination, and configurable page size.
+- Added a safe release-detail merge action that preserves user and notification history.
+- Added best-effort Cover Art Archive enrichment when Deezer artwork is unavailable.
+
+### Fixed
+
+- Included release dates in discovery notification copy.
+- Fixed canonical artist follow-state matching.
+- Prevented duplicate releases from reappearing when MusicBrainz and provider dates differ.
 
 ## v0.0.4 - 2026-07-01
 
