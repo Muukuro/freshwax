@@ -17,5 +17,7 @@
 !prisma/**
 !public/
 !public/**
+!scripts/
+!scripts/prepare-prisma-migrations.mjs
 !src/
 !src/**
