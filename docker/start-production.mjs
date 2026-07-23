@@ -53,6 +53,27 @@ process.on("SIGTERM", () => forwardSignal("SIGTERM"));
 process.on("SIGINT", () => forwardSignal("SIGINT"));
 
 if (process.env.FRESHWAX_SKIP_DB_PUSH !== "1") {
+  const preparation = spawnSync(
+    "npx",
+    [
+      "prisma",
+      "db",
+      "execute",
+      "--schema",
+      "prisma/schema.prisma",
+      "--file",
+      "prisma/upgrades/before-db-push.sql",
+    ],
+    {
+      stdio: "inherit",
+      env: process.env,
+    },
+  );
+
+  if (preparation.status !== 0) {
+    process.exit(preparation.status ?? 1);
+  }
+
   const result = spawnSync("npx", ["prisma", "db", "push"], {
     stdio: "inherit",
     env: process.env,

@@ -45,6 +45,20 @@ jobs:
     needs: version
     if: needs.version.outputs.is_semver == 'true'
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: freshwax
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d freshwax"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     env:
       APP_URL: http://127.0.0.1:3000
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/freshwax?schema=public
@@ -52,6 +66,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -67,6 +83,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Verify populated database upgrade
+        run: npm run test:schema-upgrade
 
       - name: Lint
         run: npm run lint
