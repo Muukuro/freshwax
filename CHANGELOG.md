@@ -17,8 +17,17 @@ Freshwax uses semantic versioning with release tags named `vMAJOR.MINOR.PATCH`.
 ### Patch
 
 - Use for backward-compatible bug fixes, documentation corrections, dependency maintenance, and small operational fixes.
+
+## v0.1.1 - 2026-07-23
+
+### Changed
+
 - Migrated production schema upgrades from `prisma db push` to versioned Prisma migrations, including automatic baselining for existing installations.
-- Added release checks that simulate upgrading a populated database from the previous release schema.
+- Reduced the published container image size.
+
+### Fixed
+
+- Added release validation that catches unsafe schema changes by upgrading a populated database from the previous release.
 
 ## v0.1.0 - 2026-07-23
 
