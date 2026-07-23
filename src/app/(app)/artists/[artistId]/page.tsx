@@ -1,7 +1,8 @@
-import { Headphones, RefreshCw, UserMinus } from "lucide-react";
+import { Check, Headphones, RefreshCw, UserMinus, UserPlus } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import {
+  followArtistAction,
   syncFollowedArtistNowAction,
   unfollowArtistAction,
 } from "@/app/actions/follows";
@@ -59,12 +60,30 @@ export default async function ArtistDetailPage({
             <span className="status-pill">
               {formatInteger(detail.artist.knownReleaseCount)} known releases
             </span>
-            <span className="status-pill">
-              Last synced{" "}
-              {detail.artist.lastSyncedAt
-                ? formatTimestampInTimeZone(detail.artist.lastSyncedAt, timeZone)
-                : "not yet"}
+            <span
+              className={
+                detail.artist.isFollowed
+                  ? "status-pill text-emerald-700 dark:text-emerald-200"
+                  : "status-pill"
+              }
+            >
+              {detail.artist.isFollowed ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Following
+                </>
+              ) : (
+                "Not followed"
+              )}
             </span>
+            {detail.artist.isFollowed ? (
+              <span className="status-pill">
+                Last synced{" "}
+                {detail.artist.lastSyncedAt
+                  ? formatTimestampInTimeZone(detail.artist.lastSyncedAt, timeZone)
+                  : "not yet"}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -77,29 +96,52 @@ export default async function ArtistDetailPage({
               label={link.label}
             />
           ))}
-          <form action={syncFollowedArtistNowAction}>
-            <input name="artistId" type="hidden" value={detail.artist.artistId} />
-            <SubmitButton className="ghost-button" pendingLabel="Syncing...">
-              <RefreshCw className="h-4 w-4" />
-              Sync now
-            </SubmitButton>
-          </form>
-          <form action={unfollowArtistAction}>
-            <input name="artistId" type="hidden" value={detail.artist.artistId} />
-            <input name="redirectTo" type="hidden" value="/artists" />
-            <SubmitButton className="ghost-button" pendingLabel="Removing...">
-              <UserMinus className="h-4 w-4" />
-              Unfollow
-            </SubmitButton>
-          </form>
+          {detail.artist.isFollowed ? (
+            <>
+              <form action={syncFollowedArtistNowAction}>
+                <input name="artistId" type="hidden" value={detail.artist.artistId} />
+                <SubmitButton className="ghost-button" pendingLabel="Syncing...">
+                  <RefreshCw className="h-4 w-4" />
+                  Sync now
+                </SubmitButton>
+              </form>
+              <form action={unfollowArtistAction}>
+                <input name="artistId" type="hidden" value={detail.artist.artistId} />
+                <input name="redirectTo" type="hidden" value="/artists" />
+                <SubmitButton className="ghost-button" pendingLabel="Removing...">
+                  <UserMinus className="h-4 w-4" />
+                  Unfollow
+                </SubmitButton>
+              </form>
+            </>
+          ) : (
+            <form action={followArtistAction}>
+              <input
+                name="musicbrainzArtistId"
+                type="hidden"
+                value={detail.artist.musicbrainzArtistId}
+              />
+              <input
+                name="artistName"
+                type="hidden"
+                value={detail.artist.canonicalName}
+              />
+              <SubmitButton className="primary-button" pendingLabel="Adding...">
+                <UserPlus className="h-4 w-4" />
+                Follow
+              </SubmitButton>
+            </form>
+          )}
         </div>
       </section>
 
-      <ProviderMappingCorrectionPanel
-        mappings={detail.artist.mappings}
-        target="artist"
-        targetId={detail.artist.artistId}
-      />
+      {detail.artist.isFollowed ? (
+        <ProviderMappingCorrectionPanel
+          mappings={detail.artist.mappings}
+          target="artist"
+          targetId={detail.artist.artistId}
+        />
+      ) : null}
 
       <section className="space-y-4">
         <div className="section-bar">
