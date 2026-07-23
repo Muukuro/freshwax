@@ -145,6 +145,22 @@ Keep docs aligned with the actual code, not intended future state.
 
 ## Agent skills
 
+### GitHub identity and attribution
+
+All GitHub mutations performed by Codex for `Muukuro/freshwax` must authenticate as the `freshwax-codex` GitHub App installation through `codex-gh`. This includes changes to issues, pull requests, branches, tags, releases, checks, workflows, and any other GitHub-hosted state.
+
+The repository's existing issue and pull-request interaction rules remain fully applicable. App authentication does not bypass approval gates, interaction restrictions, review requirements, or scope limits.
+
+- Do not use the human user's existing `gh` authentication for GitHub mutations.
+- Do not run `gh auth login`, alter human authentication, persist an installation token, or silently fall back to the human account if app authentication fails.
+- Use `codex-gh` for reads when practical, especially before a related write.
+- Before the first GitHub mutation in a task, run `codex-gh whoami` and verify the expected `freshwax-codex` installation. Stop before mutating anything if identity or attribution is uncertain.
+- Never print, inspect, copy into chat, commit, or otherwise expose the App private key, a signed JWT, an installation token, credential-bearing URLs, or environment variables containing those credentials.
+- Preserve the human author's configured Git identity unless the user explicitly requests another commit-author policy. Do not represent Codex as a human co-author or change repository/global `user.name` or `user.email` during authentication setup.
+- GitHub activity made through the installation should appear under the App bot identity. Do not claim in issue or PR text that the human user personally performed bot-authored triage.
+
+See `docs/agents/github-app-auth.md` for local setup, verification, and usage.
+
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `Muukuro/freshwax`. See `docs/agents/issue-tracker.md`.

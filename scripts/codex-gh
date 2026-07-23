@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly EXPECTED_APP_SLUG="freshwax-codex"
+readonly EXPECTED_ACCOUNT="Muukuro"
+readonly EXPECTED_REPOSITORY="Muukuro/freshwax"
+readonly DEFAULT_CONFIG_PATH="${HOME}/.config/freshwax-codex/config"
+readonly DEFAULT_KEY_PATH="${HOME}/.config/freshwax-codex/freshwax-codex.2026-07-23.private-key.pem"
+
+die() {
+  printf 'codex-gh: %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
+}
+
+read_config() {
+  local config_path="${CODEX_GH_CONFIG:-${DEFAULT_CONFIG_PATH}}"
+  [[ -f "${config_path}" ]] || die "configuration not found: ${config_path}"
+
+  local mode
+  mode="$(stat -f '%Lp' "${config_path}" 2>/dev/null || stat -c '%a' "${config_path}" 2>/dev/null)" \
+    || die "cannot inspect configuration permissions"
+  (( (8#${mode} & 8#077) == 0 )) || die "configuration must not be group- or world-accessible: ${config_path}"
+
+  APP_ID=""
+  INSTALLATION_ID=""
+  PRIVATE_KEY_PATH=""
+
+  local line key value
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" || "${line}" == \#* ]] && continue
+    [[ "${line}" == *=* ]] || die "invalid configuration line"
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "${key}" in
+      APP_ID) APP_ID="${value}" ;;
+      INSTALLATION_ID) INSTALLATION_ID="${value}" ;;
+      PRIVATE_KEY_PATH) PRIVATE_KEY_PATH="${value}" ;;
+      *) die "unknown configuration key: ${key}" ;;
+    esac
+  done < "${config_path}"
+
+  [[ "${APP_ID}" =~ ^[0-9]+$ ]] || die "APP_ID is missing or invalid"
+  [[ "${INSTALLATION_ID}" =~ ^[0-9]+$ ]] || die "INSTALLATION_ID is missing or invalid"
+  PRIVATE_KEY_PATH="${PRIVATE_KEY_PATH:-${DEFAULT_KEY_PATH}}"
+  PRIVATE_KEY_PATH="${PRIVATE_KEY_PATH/#\~/${HOME}}"
+  [[ -f "${PRIVATE_KEY_PATH}" ]] || die "private key not found: ${PRIVATE_KEY_PATH}"
+
+  mode="$(stat -f '%Lp' "${PRIVATE_KEY_PATH}" 2>/dev/null || stat -c '%a' "${PRIVATE_KEY_PATH}" 2>/dev/null)" \
+    || die "cannot inspect private-key permissions"
+  (( (8#${mode} & 8#077) == 0 )) || die "private key must not be group- or world-readable: ${PRIVATE_KEY_PATH}"
+}
+
+base64url() {
+  openssl base64 -A | tr '+/' '-_' | tr -d '='
+}
+
+create_jwt() {
+  local now issued_at expires_at header payload signing_input signature
+  now="$(date +%s)"
+  issued_at="$((now - 60))"
+  expires_at="$((now + 540))"
+  header="$(printf '%s' '{"alg":"RS256","typ":"JWT"}' | base64url)"
+  payload="$(printf '{"iat":%s,"exp":%s,"iss":"%s"}' "${issued_at}" "${expires_at}" "${APP_ID}" | base64url)"
+  signing_input="${header}.${payload}"
+  signature="$(printf '%s' "${signing_input}" | openssl dgst -sha256 -sign "${PRIVATE_KEY_PATH}" | base64url)" \
+    || die "JWT signing failed"
+  printf '%s.%s\n' "${signing_input}" "${signature}"
+}
+
+github_api() {
+  local authorization="$1"
+  local method="$2"
+  local path="$3"
+  shift 3
+  curl --fail-with-body --silent --show-error \
+    -X "${method}" \
+    -H "Accept: application/vnd.github+json" \
+    -H "Authorization: Bearer ${authorization}" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "https://api.github.com${path}" "$@"
+}
+
+create_installation_token() {
+  local jwt installation_json token_json
+  jwt="$(create_jwt)"
+  installation_json="$(github_api "${jwt}" GET "/app/installations/${INSTALLATION_ID}")" \
+    || die "cannot verify installation identity"
+
+  jq -e \
+    --argjson app_id "${APP_ID}" \
+    --arg account "${EXPECTED_ACCOUNT}" \
+    '.app_id == $app_id and .account.login == $account' \
+    >/dev/null <<<"${installation_json}" \
+    || die "installation identity does not match ${EXPECTED_APP_SLUG} on ${EXPECTED_ACCOUNT}"
+
+  token_json="$(github_api "${jwt}" POST "/app/installations/${INSTALLATION_ID}/access_tokens" \
+    --data "$(jq -cn --arg repository "freshwax" '{repositories: [$repository]}')")" \
+    || die "installation token creation failed"
+  unset jwt
+
+  INSTALLATION_TOKEN="$(jq -er '.token' <<<"${token_json}")" \
+    || die "installation token response did not contain a token"
+  TOKEN_EXPIRES_AT="$(jq -er '.expires_at' <<<"${token_json}")" \
+    || die "installation token response did not contain an expiry"
+  unset token_json
+
+  local repo_json
+  repo_json="$(github_api "${INSTALLATION_TOKEN}" GET "/repos/${EXPECTED_REPOSITORY}")" \
+    || die "installation token cannot access ${EXPECTED_REPOSITORY}"
+  [[ "$(jq -r '.full_name' <<<"${repo_json}")" == "${EXPECTED_REPOSITORY}" ]] \
+    || die "installation token resolved an unexpected repository"
+}
+
+run_whoami() {
+  local installation_json repo_json
+  installation_json="$(github_api "${INSTALLATION_TOKEN}" GET "/installation/repositories")" \
+    || die "cannot inspect installation repositories"
+  jq -e --arg repo "${EXPECTED_REPOSITORY}" \
+    '.repositories | any(.full_name == $repo)' >/dev/null <<<"${installation_json}" \
+    || die "${EXPECTED_REPOSITORY} is not in the installation repository set"
+  repo_json="$(github_api "${INSTALLATION_TOKEN}" GET "/repos/${EXPECTED_REPOSITORY}")" \
+    || die "cannot access ${EXPECTED_REPOSITORY}"
+  printf '%s\n' \
+    "GitHub App: ${EXPECTED_APP_SLUG}" \
+    "Account: ${EXPECTED_ACCOUNT}" \
+    "Repository: $(jq -r '.full_name' <<<"${repo_json}")" \
+    "Token expires: ${TOKEN_EXPIRES_AT}"
+}
+
+run_git() {
+  export GH_TOKEN="${INSTALLATION_TOKEN}"
+  export GIT_TERMINAL_PROMPT=0
+  export GIT_ASKPASS="${BASH_SOURCE[0]}"
+  export CODEX_GH_ASKPASS=1
+  export GIT_CONFIG_COUNT=3
+  export GIT_CONFIG_KEY_0="credential.helper"
+  export GIT_CONFIG_VALUE_0=""
+  export GIT_CONFIG_KEY_1="credential.username"
+  export GIT_CONFIG_VALUE_1="x-access-token"
+  export GIT_CONFIG_KEY_2="url.https://github.com/.insteadOf"
+  export GIT_CONFIG_VALUE_2="git@github.com:"
+  exec git "${@:2}"
+}
+
+if [[ "${CODEX_GH_ASKPASS:-}" == "1" ]]; then
+  case "${1:-}" in
+    *Username*) printf '%s\n' "x-access-token" ;;
+    *Password*) printf '%s\n' "${GH_TOKEN:?}" ;;
+    *) exit 1 ;;
+  esac
+  exit 0
+fi
+
+require_command curl
+require_command jq
+require_command openssl
+read_config
+create_installation_token
+
+case "${1:-}" in
+  whoami)
+    [[ "$#" -eq 1 ]] || die "whoami does not accept arguments"
+    run_whoami
+    ;;
+  gh)
+    require_command gh
+    export GH_TOKEN="${INSTALLATION_TOKEN}"
+    exec "$@"
+    ;;
+  git)
+    require_command git
+    run_git "$@"
+    ;;
+  *)
+    die "usage: codex-gh whoami | codex-gh gh ... | codex-gh git ..."
+    ;;
+esac
