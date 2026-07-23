@@ -23,7 +23,7 @@ test("release-day notification copy leads with artist and title", () => {
   );
 });
 
-test("late-find notification copy avoids missed-release language", () => {
+test("late-find notification copy includes the original release date", () => {
   assert.deepEqual(
     buildNotificationCopy(
       {
@@ -35,7 +35,7 @@ test("late-find notification copy avoids missed-release language", () => {
     ),
     {
       title: "Avery Moss - Silver Thread",
-      body: "Found late",
+      body: "Found late · Tue, Apr 21, 2026",
     },
   );
 });
@@ -57,7 +57,7 @@ test("same-day discovery notification copy identifies releases out today", () =>
   );
 });
 
-test("future discovery notification copy identifies upcoming releases", () => {
+test("future discovery notification copy includes the upcoming release date", () => {
   assert.deepEqual(
     buildNotificationCopy(
       {
@@ -69,7 +69,7 @@ test("future discovery notification copy identifies upcoming releases", () => {
     ),
     {
       title: "Avery Moss - Silver Thread",
-      body: "Upcoming release found",
+      body: "Upcoming · Tue, Apr 21, 2026",
     },
   );
 });
