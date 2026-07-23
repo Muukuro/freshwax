@@ -7,6 +7,7 @@
 - Redis with BullMQ for restart-safe background sync scheduling.
 - MusicBrainz as the canonical identity layer and credential-free release discovery backbone, with provider enrichment layered on top.
 - MusicBrainz requests are centralized behind an in-process 1 request/second gate with retry backoff and a contactable User-Agent using the instance `APP_URL`.
+- Cover Art Archive provides best-effort release-group artwork keyed by MusicBrainz identity when Deezer artwork is unavailable.
 - Wikidata enriches canonical artist records with structured profile signals such as classical-composer classification.
 - Last.fm public API as an optional per-user import source based on a saved username and minimum listen threshold.
 - Optional external login/account-link adapters per provider.
@@ -26,6 +27,7 @@
 - Canonical artist records require the MusicBrainz artist ID as a dedicated field instead of overloading internal primary keys, which keeps provider imports anchored to a stable canonical identity.
 - Provider mappings can be corrected manually from artist and release detail pages. These corrections are global catalog state for the self-hosted instance, but they only repair exact external links; MusicBrainz remains the canonical identity layer.
 - Automatic MusicBrainz, Wikidata, and Deezer enrichment may add missing provider mappings, but it must not overwrite manually corrected mappings for the same catalog item and provider.
+- Deezer artwork takes precedence when available; approved Cover Art Archive front images fill missing canonical release artwork, and transient enrichment failures never clear stored artwork.
 - The "hide classical composer appearances" setting targets composer appearances, not all classical releases: Wikidata classifies whether the followed artist is a classical composer, while MusicBrainz recording-to-work composer relationships reached through a representative release should determine whether that artist appears only as composer on a specific release.
 - Composer-appearance classification is stored on the release/artist association during sync so feeds, calendar output, and notifications share one persisted interpretation instead of recalculating provider-specific raw metadata at read time.
 - Release/artist roles use a small application-controlled vocabulary, currently distinguishing primary associations from composer appearances, while staying compatible with the current `prisma db push` bootstrap flow.
@@ -55,6 +57,7 @@
 ## Known limitations
 
 - Deezer metadata quality varies; it is treated as optional enrichment sourced from canonical mappings rather than a prerequisite for identity or release sync.
+- Cover Art Archive coverage depends on community-curated approved front images; missing, malformed, or unavailable artwork leaves the existing visual fallback in place.
 - Manual provider mappings are intentionally narrow: they fix exact artist or release links, but they do not edit canonical names, dates, release types, or artist/release ownership.
 - Manual duplicate resolution is intentionally narrow: it only offers same-title releases sharing a followed artist, requires explicit confirmation, and does not provide general catalog editing.
 - Classical composer hiding is intentionally conservative and depends on MusicBrainz having enough release-specific relationship data to distinguish composer appearances from performer, ensemble, or conductor releases.
