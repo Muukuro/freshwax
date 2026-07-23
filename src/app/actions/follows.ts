@@ -51,6 +51,7 @@ export async function followArtistAction(formData: FormData) {
   await enqueueArtistSync(artist.id);
   void syncArtist(artist.id, user.id).catch(() => undefined);
 
+  revalidatePath(`/artists/${artist.id}`);
   revalidatePath("/artists");
   revalidatePath("/dashboard");
   revalidatePath("/upcoming");

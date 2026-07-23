@@ -557,32 +557,28 @@ export async function getReleaseDetail(userId: string, releaseId: string) {
 }
 
 export async function getArtistDetail(userId: string, artistId: string) {
-  const [settings, preferences, follow] = await Promise.all([
+  const [settings, preferences, artist] = await Promise.all([
     prisma.userSettings.findUniqueOrThrow({ where: { userId } }),
     getUserPlatformPreferences(userId),
-    prisma.userFollow.findUnique({
-      where: {
-        userId_artistId: {
-          userId,
-          artistId,
-        },
-      },
+    prisma.artist.findUnique({
+      where: { id: artistId },
       include: {
-        artist: {
-          include: {
-            mappings: true,
-            _count: {
-              select: {
-                releaseArtists: true,
-              },
-            },
+        mappings: true,
+        followers: {
+          where: { userId },
+          select: { lastSyncedAt: true },
+          take: 1,
+        },
+        _count: {
+          select: {
+            releaseArtists: true,
           },
         },
       },
     }),
   ]);
 
-  if (!follow) {
+  if (!artist) {
     return null;
   }
 
@@ -601,17 +597,20 @@ export async function getArtistDetail(userId: string, artistId: string) {
     take: 48,
   });
 
+  const follow = artist.followers[0] ?? null;
+
   return {
     artist: {
       ...addArtistPlatformLinks(
         {
-          ...follow.artist,
+          ...artist,
           releaseArtists: [],
         },
         preferences,
       ),
-      mappings: follow.artist.mappings,
-      lastSyncedAt: follow.lastSyncedAt?.toISOString() ?? null,
+      mappings: artist.mappings,
+      isFollowed: follow !== null,
+      lastSyncedAt: follow?.lastSyncedAt?.toISOString() ?? null,
     },
     releases: filterReleasesForSettings(releases, settings).map((release) =>
       addReleasePlatformLinks(release, preferences),
