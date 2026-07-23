@@ -35,6 +35,7 @@
 - User-scoped filtering hides a release only when every followed artist associated with that release is classified as a composer appearance.
 - Hidden composer appearances remain directly reachable as followed-artist release details and report that current settings filter them out, matching other visibility preferences.
 - Existing release/artist rows are reclassified best-effort during normal artist sync rather than by a schema migration that calls external providers.
+- Container startup applies narrowly scoped, idempotent compatibility SQL before `prisma db push`; release checks exercise the current schema against a populated database created from the previous release tag.
 - Recording/work role classification is attempted only for artists classified as classical composers, keeping MusicBrainz request volume tied to the setting's actual scope.
 - Release-group-shaped feed items use one deterministic representative MusicBrainz release for recording/work classification rather than scanning every edition in the release group.
 - Representative release selection prefers an official release with media and recordings matching the release group's first-release date, then the earliest official release with recordings, then the earliest release with recordings; if none have usable recordings, the association stays visible.

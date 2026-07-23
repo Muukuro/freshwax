@@ -89,7 +89,7 @@ That builds the local source image and launches:
 
 - `postgres`
 - `redis`
-- `freshwax`, which runs `prisma db push`, the Next.js app, and the BullMQ worker
+- `freshwax`, which applies safe compatibility preparation, runs `prisma db push`, and starts the Next.js app and BullMQ worker
 
 Freshwax works without third-party provider credentials. For a minimal setup, `DATABASE_URL`, `REDIS_URL`, and `APP_URL` are the only required values.
 
@@ -166,7 +166,7 @@ These enable optional login, linking, or import flows. Core release tracking doe
 ## Deployment Notes
 
 - The app uses Next.js standalone output in containers
-- `docker compose up` starts one `freshwax` container that runs schema bootstrapping with `prisma db push`, then starts the worker and web app
+- `docker compose up` starts one `freshwax` container that applies safe compatibility preparation, runs schema bootstrapping with `prisma db push`, then starts the worker and web app
 - Published images are available from `ghcr.io/muukuro/freshwax`; use exact semver tags for repeatable production installs
 - The Docker image health check calls `/api/health`, which verifies that the web app can query PostgreSQL
 - Set `FRESHWAX_SKIP_DB_PUSH=1` only if schema bootstrapping is handled outside the container

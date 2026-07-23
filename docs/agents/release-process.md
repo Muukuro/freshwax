@@ -10,11 +10,17 @@ Before creating or recommending a release tag, verify the release candidate has 
 - `npm run build`
 - `npx prisma validate`
 - `npx prisma generate`
+- `npm run test:schema-upgrade`
 
 If schema or setup behavior changed in the release, also verify:
 
 - `npx prisma db push`
 - `npm run prisma:seed`
+
+The schema-upgrade check must create a populated database from the previous
+release tag and apply the candidate schema in place. A clean-database
+`prisma db push` is not sufficient evidence that an existing installation can
+upgrade safely.
 
 Do not create a release tag if required checks are failing or unrun without explicitly telling the maintainer what is missing.
 
