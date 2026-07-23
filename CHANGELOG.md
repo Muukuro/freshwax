@@ -17,6 +17,7 @@ Freshwax uses semantic versioning with release tags named `vMAJOR.MINOR.PATCH`.
 ### Patch
 
 - Use for backward-compatible bug fixes, documentation corrections, dependency maintenance, and small operational fixes.
+- Prevent duplicate releases from reappearing when MusicBrainz and provider dates differ, and add a safe release-detail merge action that preserves user and notification history.
 
 ## v0.0.4 - 2026-07-01
 

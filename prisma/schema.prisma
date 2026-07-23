@@ -281,6 +281,7 @@ model UserFollow {
 
 model Release {
   id               String                   @id @default(cuid())
+  releaseGroupMbid String?                  @unique
   title            String
   normalizedTitle  String
   releaseDate      DateTime

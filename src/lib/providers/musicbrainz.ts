@@ -490,6 +490,33 @@ export async function fetchMbReleasePlatformMappings(
   }
 }
 
+/**
+ * Resolve a Deezer album to its canonical MusicBrainz release group.
+ * This is used only when the normal title/date join cannot correlate the
+ * Deezer enrichment row with a release group.
+ */
+export async function fetchMbReleaseGroupMbidByDeezerAlbumId(
+  deezerAlbumId: string,
+): Promise<string | null> {
+  const deezerUrl = `https://www.deezer.com/album/${deezerAlbumId}`;
+
+  try {
+    const urlData = (await mbFetch(
+      `${MB_API}/url?resource=${encodeURIComponent(deezerUrl)}&inc=release-group-rels&fmt=json`,
+    )) as MbUrlEntityResponse;
+
+    return (
+      urlData.relations?.find(
+        (relation) =>
+          relation["target-type"] === "release_group" &&
+          relation["release-group"]?.id,
+      )?.["release-group"]?.id ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchMbReleasePlatformMappingsByReleaseGroupMbid(
   releaseGroupMbid: string,
 ): Promise<MbReleasePlatformMapping[]> {

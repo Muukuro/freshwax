@@ -21,6 +21,8 @@
 - Core artist search, following, sync, dashboard feeds, and calendar output must work without any configured platform credentials.
 - External import sources are optional and additive: a Last.fm username and/or streaming-platform account can be linked per local user, but they do not replace local sessions.
 - Canonical artist and release records are separated from provider mappings so the app can tolerate imperfect cross-provider linkage.
+- Canonical releases persist a nullable, unique MusicBrainz release-group ID. Sync matches that identity before provider mappings and exact title/date shape, and it may merge records automatically only when strong MusicBrainz/provider evidence proves they represent the same release.
+- Authenticated users may manually merge same-title releases only when both share an artist they follow. The selected survivor keeps its canonical metadata while artist associations, provider mappings, discoveries, ignores, notifications, and delivery history are transactionally preserved.
 - Canonical artist records require the MusicBrainz artist ID as a dedicated field instead of overloading internal primary keys, which keeps provider imports anchored to a stable canonical identity.
 - Provider mappings can be corrected manually from artist and release detail pages. These corrections are global catalog state for the self-hosted instance, but they only repair exact external links; MusicBrainz remains the canonical identity layer.
 - Automatic MusicBrainz, Wikidata, and Deezer enrichment may add missing provider mappings, but it must not overwrite manually corrected mappings for the same catalog item and provider.
@@ -54,6 +56,7 @@
 
 - Deezer metadata quality varies; it is treated as optional enrichment sourced from canonical mappings rather than a prerequisite for identity or release sync.
 - Manual provider mappings are intentionally narrow: they fix exact artist or release links, but they do not edit canonical names, dates, release types, or artist/release ownership.
+- Manual duplicate resolution is intentionally narrow: it only offers same-title releases sharing a followed artist, requires explicit confirmation, and does not provide general catalog editing.
 - Classical composer hiding is intentionally conservative and depends on MusicBrainz having enough release-specific relationship data to distinguish composer appearances from performer, ensemble, or conductor releases.
 - If MusicBrainz lacks enough recording/work relationship data to prove a composer-only appearance, Freshwax keeps the release visible.
 - Deezer genre and track attribution hints are not used as a fallback for composer-appearance hiding; Deezer remains artwork/link enrichment only for this flow.

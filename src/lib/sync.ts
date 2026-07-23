@@ -22,6 +22,7 @@ import {
   fetchArtistAliasesByMbid,
   fetchArtistReleaseGroupsByMbid,
   fetchMbPlatformMappingsByMbid,
+  fetchMbReleaseGroupMbidByDeezerAlbumId,
   fetchMbReleasePlatformMappings,
   fetchMbReleasePlatformMappingsByReleaseGroupMbid,
   isComposerOnlyAppearanceOnReleaseGroup,
@@ -44,6 +45,11 @@ import { createSyncJobLog, updateSyncJobLog } from "@/lib/sync-job-log";
 import { getAppDefaultTimeZone, getEffectiveTimeZone } from "@/lib/timezone-server";
 import { getDateOffsetUtcDateForTimeZone, getTodayUtcDateForTimeZone } from "@/lib/timezone";
 import { normalizeName } from "@/lib/utils";
+import {
+  getLegacyReleaseGroupMbid,
+  mergeDuplicateReleases,
+  selectReleaseIdentityMatch,
+} from "@/lib/release-duplicates";
 
 type ArtistSearchResult = {
   musicbrainzArtistId?: string;
@@ -396,6 +402,7 @@ async function buildCoreReleaseCandidates(
 ) {
   const mbReleaseGroups = await fetchArtistReleaseGroupsByMbid(mbid);
   const releaseByKey = new Map<string, CoreReleaseCandidate>();
+  const releaseByMbid = new Map<string, CoreReleaseCandidate>();
 
   for (const releaseGroup of mbReleaseGroups) {
     await throwIfSyncCancelled(queueJobId);
@@ -407,7 +414,7 @@ async function buildCoreReleaseCandidates(
     if (!normalizedTitle) continue;
 
     const key = `${normalizedTitle}:${releaseGroup.firstReleaseDate}`;
-    releaseByKey.set(key, {
+    const candidate = {
       title: releaseGroup.title,
       normalizedTitle,
       releaseDate: releaseGroup.firstReleaseDate,
@@ -426,7 +433,9 @@ async function buildCoreReleaseCandidates(
       releaseGroupMbid: releaseGroup.releaseGroupId,
       deezerProviderReleaseId: null,
       deezerRaw: undefined,
-    });
+    } satisfies CoreReleaseCandidate;
+    releaseByKey.set(key, candidate);
+    releaseByMbid.set(releaseGroup.releaseGroupId, candidate);
   }
 
   if (!deezerMapping) {
@@ -444,11 +453,22 @@ async function buildCoreReleaseCandidates(
     if (!normalizedTitle) continue;
 
     const key = `${normalizedTitle}:${release.releaseDate}`;
-    const existing = releaseByKey.get(key);
+    let existing = releaseByKey.get(key);
+    let releaseGroupMbid = existing?.releaseGroupMbid ?? null;
+
+    if (!existing) {
+      releaseGroupMbid =
+        await fetchMbReleaseGroupMbidByDeezerAlbumId(
+          release.providerReleaseId,
+        );
+      existing = releaseGroupMbid
+        ? releaseByMbid.get(releaseGroupMbid)
+        : undefined;
+    }
     const deezerRaw = toInputJsonValue(release.raw);
 
     if (existing) {
-      releaseByKey.set(key, {
+      const enriched = {
         ...existing,
         coverUrl: release.coverUrl ?? existing.coverUrl,
         deezerUrl: release.deezerUrl,
@@ -466,7 +486,12 @@ async function buildCoreReleaseCandidates(
           : existing.rawSource,
         deezerProviderReleaseId: release.providerReleaseId,
         deezerRaw: release.raw,
-      });
+      } satisfies CoreReleaseCandidate;
+      const existingKey = `${existing.normalizedTitle}:${existing.releaseDate}`;
+      releaseByKey.set(existingKey, enriched);
+      if (enriched.releaseGroupMbid) {
+        releaseByMbid.set(enriched.releaseGroupMbid, enriched);
+      }
       continue;
     }
 
@@ -487,7 +512,7 @@ async function buildCoreReleaseCandidates(
         : ({
             source: "deezer-enrichment",
           } satisfies Prisma.InputJsonValue),
-      releaseGroupMbid: null,
+      releaseGroupMbid,
       deezerProviderReleaseId: release.providerReleaseId,
       deezerRaw: release.raw,
     });
@@ -973,8 +998,11 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
 
     const deezerReleaseIds = remoteReleases
       .flatMap((release) => (release.deezerProviderReleaseId ? [release.deezerProviderReleaseId] : []));
+    const releaseGroupMbids = remoteReleases.flatMap((release) =>
+      release.releaseGroupMbid ? [release.releaseGroupMbid] : [],
+    );
     const candidateTitles = [...new Set(remoteReleases.map((release) => release.normalizedTitle))];
-    const [existingMappings, existingReleasesByShape] = await Promise.all([
+    const [existingMappings, existingReleasesByShape, existingReleasesByMbid] = await Promise.all([
       deezerReleaseIds.length > 0
         ? prisma.releaseProviderMapping.findMany({
             where: {
@@ -1010,6 +1038,14 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
             include: { mappings: true },
           })
         : Promise.resolve([]),
+      releaseGroupMbids.length > 0
+        ? prisma.release.findMany({
+            where: {
+              releaseGroupMbid: { in: releaseGroupMbids },
+            },
+            include: { mappings: true },
+          })
+        : Promise.resolve([]),
     ]);
     const existingMappingByDeezerId = new Map(
       existingMappings.map((mapping) => [mapping.providerReleaseId, mapping]),
@@ -1020,6 +1056,18 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
         release,
       ]),
     );
+    const existingReleaseByMbid = new Map(
+      existingReleasesByMbid.map((release) => [
+        release.releaseGroupMbid!,
+        release,
+      ]),
+    );
+    for (const release of existingReleasesByShape) {
+      const legacyMbid = getLegacyReleaseGroupMbid(release.rawSource);
+      if (legacyMbid && !existingReleaseByMbid.has(legacyMbid)) {
+        existingReleaseByMbid.set(legacyMbid, release);
+      }
+    }
 
     for (const release of remoteReleases) {
       await throwIfSyncCancelled(queueJobId);
@@ -1027,11 +1075,45 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
       const existingMapping = release.deezerProviderReleaseId
         ? existingMappingByDeezerId.get(release.deezerProviderReleaseId) ?? null
         : null;
-      const existingByCoreShape = existingMapping
-        ? null
-        : existingReleaseByCoreKey.get(buildReleaseCoreKey(release.normalizedTitle, releaseDate)) ??
-          null;
-      const existingRelease = existingMapping?.release ?? existingByCoreShape;
+      const existingByMbid = release.releaseGroupMbid
+        ? existingReleaseByMbid.get(release.releaseGroupMbid) ?? null
+        : null;
+      const shapeCandidate =
+        existingReleaseByCoreKey.get(
+          buildReleaseCoreKey(release.normalizedTitle, releaseDate),
+        ) ?? null;
+      const existingByCoreShape =
+        existingMapping || existingByMbid
+          ? null
+          : shapeCandidate &&
+              (!release.releaseGroupMbid ||
+                !shapeCandidate.releaseGroupMbid ||
+                shapeCandidate.releaseGroupMbid === release.releaseGroupMbid)
+            ? shapeCandidate
+            : null;
+      let existingRelease = selectReleaseIdentityMatch({
+        incomingReleaseGroupMbid: release.releaseGroupMbid,
+        byMusicBrainz: existingByMbid,
+        byProvider: existingMapping?.release ?? null,
+        byShape: existingByCoreShape,
+      });
+
+      if (
+        existingByMbid &&
+        existingMapping &&
+        existingByMbid.id !== existingMapping.release.id
+      ) {
+        await mergeDuplicateReleases({
+          survivingReleaseId: existingByMbid.id,
+          duplicateReleaseId: existingMapping.release.id,
+        });
+        existingRelease = existingByMbid;
+        existingMappingByDeezerId.set(release.deezerProviderReleaseId!, {
+          ...existingMapping,
+          releaseId: existingByMbid.id,
+          release: existingByMbid,
+        });
+      }
       const shouldEnrichPlatformMappings = releaseDate >= syncWindow.releaseDateCutoff;
       const releaseArtistRole = await resolveReleaseArtistRole({
         artistMbid: mbid,
@@ -1045,6 +1127,7 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
           where: { id: existingRelease.id },
           data: {
             title: release.title,
+            releaseGroupMbid: release.releaseGroupMbid ?? undefined,
             normalizedTitle: release.normalizedTitle,
             releaseDate,
             type: release.type,
@@ -1112,6 +1195,7 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
       const created = await prisma.release.create({
         data: {
           title: release.title,
+          releaseGroupMbid: release.releaseGroupMbid,
           normalizedTitle: release.normalizedTitle,
           releaseDate,
           type: release.type,
