@@ -2,6 +2,20 @@
 
 Freshwax releases are created from semver Git tags in the form `vMAJOR.MINOR.PATCH`.
 
+## Refresh the Release Baseline
+
+Before planning the semantic version bump or changelog, always fetch the latest
+remote `origin/main` and tags:
+
+```bash
+codex-gh git fetch origin --prune --tags
+```
+
+Base the release comparison on the freshly fetched `origin/main`, not the local
+`main` branch or a previously fetched remote-tracking ref. Do not choose a version
+or draft the versioned changelog until this fetch succeeds. This refresh is
+required even when the local branch appears current.
+
 ## Required Checks
 
 Before creating or recommending a release tag, verify the release candidate has passed:
@@ -60,11 +74,12 @@ Use exact semver image tags in release notes and operator instructions. Moving t
 
 ## Creating a Release
 
-1. Inspect the commits and changelog entries since the previous release tag.
-2. Choose the semver bump using the rules above.
-3. Confirm required checks pass.
-4. Update `CHANGELOG.md` with the final version and release date.
-5. Commit the changelog update.
-6. Create and push the tag named `vMAJOR.MINOR.PATCH`.
+1. Fetch the latest `origin/main` and tags as described above.
+2. Inspect the commits and changelog entries on the freshly fetched `origin/main` since the previous release tag.
+3. Choose the semver bump using the rules above.
+4. Confirm required checks pass.
+5. Update `CHANGELOG.md` with the final version and release date.
+6. Commit the changelog update.
+7. Create and push the tag named `vMAJOR.MINOR.PATCH`.
 
 The release workflow is responsible for publishing the Docker image and creating or updating the GitHub Release for the pushed tag.
