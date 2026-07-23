@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "api.deezer.com",
       },
+      {
+        protocol: "https",
+        hostname: "coverartarchive.org",
+      },
     ],
   },
 };

@@ -4,28 +4,7 @@ import Image from "next/image";
 import { useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 
-const ALLOWED_REMOTE_IMAGE_HOSTS = new Set(["api.deezer.com", "cdn-images.dzcdn.net"]);
-
-function safeImageSrc(src: string | null | undefined) {
-  if (!src) {
-    return null;
-  }
-
-  if (src.startsWith("/")) {
-    return src;
-  }
-
-  try {
-    const url = new URL(src);
-    if (url.protocol !== "https:") {
-      return null;
-    }
-
-    return ALLOWED_REMOTE_IMAGE_HOSTS.has(url.hostname) ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
+import { safeImageSrc } from "@/lib/artwork-url";
 
 export function Artwork({
   alt,

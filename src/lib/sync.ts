@@ -17,6 +17,8 @@ import {
   fetchArtistReleases,
   fetchCurrentUserFollowedArtists,
 } from "@/lib/providers/deezer";
+import { selectPreferredArtworkUrl } from "@/lib/artwork-url";
+import { fetchReleaseGroupCoverArt } from "@/lib/providers/cover-art-archive";
 import { fetchUserTopArtists } from "@/lib/providers/lastfm";
 import {
   fetchArtistAliasesByMbid,
@@ -406,13 +408,14 @@ async function buildCoreReleaseCandidates(
     const normalizedTitle = normalizeName(releaseGroup.title);
     if (!normalizedTitle) continue;
 
+    const coverArt = await fetchReleaseGroupCoverArt(releaseGroup.releaseGroupId);
     const key = `${normalizedTitle}:${releaseGroup.firstReleaseDate}`;
     releaseByKey.set(key, {
       title: releaseGroup.title,
       normalizedTitle,
       releaseDate: releaseGroup.firstReleaseDate,
       type: mapMusicBrainzReleaseType(releaseGroup.primaryType, releaseGroup.secondaryTypes),
-      coverUrl: null,
+      coverUrl: coverArt?.coverUrl ?? null,
       deezerUrl: null,
       tidalUrl: buildTidalReleaseSearchUrl(artistName, releaseGroup.title),
       confidence: 0.7,
@@ -422,6 +425,7 @@ async function buildCoreReleaseCandidates(
         primaryType: releaseGroup.primaryType,
         secondaryTypes: releaseGroup.secondaryTypes,
         artistCredits: releaseGroup.artistCredits,
+        ...(coverArt ? { coverArtArchive: coverArt.source } : {}),
       } satisfies Prisma.InputJsonValue,
       releaseGroupMbid: releaseGroup.releaseGroupId,
       deezerProviderReleaseId: null,
@@ -1048,7 +1052,7 @@ export async function syncArtist(artistId: string, userId?: string, queueJobId?:
             normalizedTitle: release.normalizedTitle,
             releaseDate,
             type: release.type,
-            coverUrl: release.coverUrl,
+            coverUrl: selectPreferredArtworkUrl(existingRelease.coverUrl, release.coverUrl),
             deezerUrl: release.deezerUrl,
             tidalUrl: release.tidalUrl,
             confidence: release.confidence,
