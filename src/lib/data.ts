@@ -364,46 +364,114 @@ export async function getDashboardData(userId: string) {
   };
 }
 
-export async function getFollowedArtists(userId: string) {
-  const [followed, preferences] = await Promise.all([
-    prisma.userFollow.findMany({
-      where: { userId },
-      include: {
-        artist: {
-          include: {
-            mappings: true,
-            _count: {
-              select: {
-                releaseArtists: true,
+export const FOLLOWED_ARTISTS_PAGE_SIZE = 48;
+
+export async function getFollowedArtistsPage(
+  userId: string,
+  {
+    page,
+    query,
+  }: {
+    page: number;
+    query: string;
+  },
+) {
+  const normalizedQuery = query.trim();
+  const where = {
+    userId,
+    artist: normalizedQuery
+      ? {
+          normalizedName: {
+            contains: normalizedQuery,
+          },
+        }
+      : undefined,
+  } satisfies Prisma.UserFollowWhereInput;
+
+  const [matchingCount, totalCount, preferences] = await Promise.all([
+    prisma.userFollow.count({ where }),
+    prisma.userFollow.count({ where: { userId } }),
+    getUserPlatformPreferences(userId),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(matchingCount / FOLLOWED_ARTISTS_PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const followed = await prisma.userFollow.findMany({
+    where,
+    include: {
+      artist: {
+        include: {
+          mappings: true,
+          _count: {
+            select: {
+              releaseArtists: true,
+            },
+          },
+          releaseArtists: {
+            include: {
+              release: true,
+            },
+            orderBy: {
+              release: {
+                releaseDate: "desc",
               },
             },
-            releaseArtists: {
-              include: {
-                release: true,
-              },
-              orderBy: {
-                release: {
-                  releaseDate: "desc",
-                },
-              },
-              take: 1,
-            },
+            take: 1,
           },
         },
       },
-      orderBy: {
+    },
+    orderBy: [
+      {
         artist: {
           canonicalName: "asc",
         },
       },
-    }),
-    getUserPlatformPreferences(userId),
-  ]);
+      { artistId: "asc" },
+    ],
+    skip: (currentPage - 1) * FOLLOWED_ARTISTS_PAGE_SIZE,
+    take: FOLLOWED_ARTISTS_PAGE_SIZE,
+  });
 
-  return followed.map((follow) => ({
-    ...addArtistPlatformLinks(follow.artist, preferences),
-    lastSyncedAt: follow.lastSyncedAt?.toISOString() ?? null,
-  }));
+  return {
+    artists: followed.map((follow) => ({
+      ...addArtistPlatformLinks(follow.artist, preferences),
+      lastSyncedAt: follow.lastSyncedAt?.toISOString() ?? null,
+    })),
+    currentPage,
+    matchingCount,
+    pageSize: FOLLOWED_ARTISTS_PAGE_SIZE,
+    totalCount,
+    totalPages,
+  };
+}
+
+export async function getFollowedMusicBrainzArtistIds(
+  userId: string,
+  musicbrainzArtistIds: string[],
+) {
+  if (musicbrainzArtistIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const followed = await prisma.userFollow.findMany({
+    where: {
+      userId,
+      artist: {
+        musicbrainzArtistId: {
+          in: musicbrainzArtistIds,
+        },
+      },
+    },
+    select: {
+      artist: {
+        select: {
+          musicbrainzArtistId: true,
+        },
+      },
+    },
+  });
+
+  return new Set(followed.map((entry) => entry.artist.musicbrainzArtistId));
 }
 
 async function getFilteredReleaseFeed(userId: string, where: Prisma.ReleaseWhereInput) {
