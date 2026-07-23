@@ -13,30 +13,44 @@ import { ImportForm } from "@/components/import-form";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { initialsForName } from "@/lib/artwork";
+import { isMusicBrainzArtistFollowed } from "@/lib/artist-follow-status";
 import {
-  buildFollowedMusicBrainzArtistIdSet,
-  isMusicBrainzArtistFollowed,
-} from "@/lib/artist-follow-status";
+  parseArtistsSearchParams,
+  type ArtistsSearchParams,
+} from "@/lib/artist-watchlist-params";
 import { requireUser } from "@/lib/auth";
 import { searchCatalogArtists } from "@/lib/catalog";
-import { getFollowedArtists } from "@/lib/data";
+import {
+  getFollowedArtistsPage,
+  getFollowedMusicBrainzArtistIds,
+} from "@/lib/data";
 import { isLastfmConfigured } from "@/lib/providers/lastfm";
 import { formatTimestampInTimeZone } from "@/lib/timezone";
 import { getEffectiveTimeZone } from "@/lib/timezone-server";
+import { normalizeName } from "@/lib/utils";
 
 export default async function ArtistsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<ArtistsSearchParams>;
 }) {
   const user = await requireUser();
   const timeZone = getEffectiveTimeZone(user.timezone);
-  const followed = await getFollowedArtists(user.id);
-  const params = await searchParams;
-  const query = params.q?.trim() ?? "";
+  const {
+    catalogQuery: query,
+    watchlistPage,
+    watchlistQuery,
+  } = parseArtistsSearchParams(await searchParams);
+  const followedPage = await getFollowedArtistsPage(user.id, {
+    page: watchlistPage,
+    query: normalizeName(watchlistQuery),
+  });
   const results = query ? await searchCatalogArtists(query) : [];
   const lastfmConfigured = isLastfmConfigured();
-  const followedMusicBrainzArtistIds = buildFollowedMusicBrainzArtistIdSet(followed);
+  const followedMusicBrainzArtistIds = await getFollowedMusicBrainzArtistIds(
+    user.id,
+    results.map((artist) => artist.musicbrainzArtistId),
+  );
 
   return (
     <div className="page-stack">
@@ -52,6 +66,16 @@ export default async function ArtistsPage({
         </div>
 
         <form className="panel flex flex-col gap-4 md:flex-row">
+          {watchlistQuery ? (
+            <input name="watchlist" type="hidden" value={watchlistQuery} />
+          ) : null}
+          {followedPage.currentPage > 1 ? (
+            <input
+              name="watchlistPage"
+              type="hidden"
+              value={followedPage.currentPage}
+            />
+          ) : null}
           <label className="field flex-1">
             <span>Search query</span>
             <input defaultValue={query} name="q" placeholder="Try: Taylor Swift" type="search" />
@@ -207,13 +231,22 @@ export default async function ArtistsPage({
           </div>
         </div>
 
-        {followed.length === 0 ? (
+        {followedPage.totalCount === 0 ? (
           <EmptyState
             title="No followed artists yet"
             body="Use search here, then manage imports and provider connections in Settings."
           />
         ) : (
-          <ArtistWatchlist followed={followed} timeZone={timeZone} />
+          <ArtistWatchlist
+            catalogQuery={query}
+            followed={followedPage.artists}
+            matchingCount={followedPage.matchingCount}
+            page={followedPage.currentPage}
+            timeZone={timeZone}
+            totalCount={followedPage.totalCount}
+            totalPages={followedPage.totalPages}
+            watchlistQuery={watchlistQuery}
+          />
         )}
       </section>
     </div>

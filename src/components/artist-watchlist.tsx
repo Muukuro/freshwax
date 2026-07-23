@@ -1,19 +1,17 @@
-"use client";
-
-import { useDeferredValue, useState } from "react";
-import { Headphones, RefreshCw, Search, UserMinus } from "lucide-react";
+import { Headphones, RefreshCw, UserMinus } from "lucide-react";
 import Link from "next/link";
 
 import { syncFollowedArtistNowAction, unfollowArtistAction } from "@/app/actions/follows";
 import { Artwork } from "@/components/artwork";
+import { ArtistWatchlistFilter } from "@/components/artist-watchlist-filter";
 import { EmptyState } from "@/components/empty-state";
 import { PlatformLink } from "@/components/platform-link";
 import { SubmitButton } from "@/components/submit-button";
 import { initialsForName } from "@/lib/artwork";
+import { buildArtistsHref, getPaginationItems } from "@/lib/artist-watchlist-params";
 import { type PlatformLinkEntry } from "@/lib/data";
 import { artistPath } from "@/lib/deeplinks";
 import { formatInteger, formatReleaseDate, formatTimestampInTimeZone } from "@/lib/timezone";
-import { normalizeName } from "@/lib/utils";
 
 type ArtistWatchlistEntry = {
   artistId: string;
@@ -31,50 +29,43 @@ type ArtistWatchlistEntry = {
 };
 
 export function ArtistWatchlist({
+  catalogQuery,
   followed,
+  matchingCount,
+  page,
   timeZone,
+  totalCount,
+  totalPages,
+  watchlistQuery,
 }: {
+  catalogQuery: string;
   followed: ArtistWatchlistEntry[];
+  matchingCount: number;
+  page: number;
   timeZone: string;
+  totalCount: number;
+  totalPages: number;
+  watchlistQuery: string;
 }) {
-  const [filter, setFilter] = useState("");
-  const deferredFilter = useDeferredValue(filter);
-  const normalizedFilter = normalizeName(deferredFilter);
-  const visibleFollowed = normalizedFilter
-    ? followed.filter((entry) => normalizeName(entry.canonicalName).includes(normalizedFilter))
-    : followed;
+  const paginationItems = getPaginationItems(page, totalPages);
 
   return (
     <>
-      <div className="watchlist-filter-shell">
-        <label className="field flex-1">
-          <span className="watchlist-filter-label">Filter followed artists</span>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
-            <input
-              className="watchlist-filter-input"
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Filter by artist name"
-              type="search"
-              value={filter}
-            />
-          </div>
-        </label>
-        <p className="watchlist-filter-meta">
-          {visibleFollowed.length === followed.length
-            ? `${formatInteger(followed.length)} artists followed`
-            : `${formatInteger(visibleFollowed.length)} of ${formatInteger(followed.length)} artists shown`}
-        </p>
-      </div>
+      <ArtistWatchlistFilter
+        catalogQuery={catalogQuery}
+        matchingCount={matchingCount}
+        totalCount={totalCount}
+        watchlistQuery={watchlistQuery}
+      />
 
-      {visibleFollowed.length === 0 ? (
+      {followed.length === 0 ? (
         <EmptyState
           title="No artists match this filter"
           body="Try a shorter name or clear the watchlist filter."
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-          {visibleFollowed.map((follow) => (
+          {followed.map((follow) => (
             <article key={follow.artistId} className="panel flex min-h-0 flex-col gap-4 p-[1.1rem]">
               <div className="flex items-start gap-3">
                 <Artwork
@@ -160,6 +151,53 @@ export function ArtistWatchlist({
           ))}
         </div>
       )}
+
+      {totalPages > 1 ? (
+        <nav aria-label="Followed artists pages" className="flex flex-wrap items-center justify-center gap-2">
+          <Link
+            aria-disabled={page === 1}
+            className={`ghost-button ${page === 1 ? "pointer-events-none opacity-50" : ""}`}
+            href={buildArtistsHref({
+              catalogQuery,
+              watchlistQuery,
+              watchlistPage: Math.max(1, page - 1),
+            })}
+          >
+            Previous
+          </Link>
+          {paginationItems.map((item, index) =>
+            item === "ellipsis" ? (
+              <span className="px-1 text-[var(--muted)]" key={`ellipsis-${index}`}>
+                …
+              </span>
+            ) : (
+              <Link
+                aria-current={item === page ? "page" : undefined}
+                className={`ghost-button min-w-10 justify-center ${item === page ? "border-[var(--accent)] text-[var(--text)]" : ""}`}
+                href={buildArtistsHref({
+                  catalogQuery,
+                  watchlistQuery,
+                  watchlistPage: item,
+                })}
+                key={item}
+              >
+                {item}
+              </Link>
+            ),
+          )}
+          <Link
+            aria-disabled={page === totalPages}
+            className={`ghost-button ${page === totalPages ? "pointer-events-none opacity-50" : ""}`}
+            href={buildArtistsHref({
+              catalogQuery,
+              watchlistQuery,
+              watchlistPage: Math.min(totalPages, page + 1),
+            })}
+          >
+            Next
+          </Link>
+        </nav>
+      ) : null}
     </>
   );
 }
