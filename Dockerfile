@@ -34,8 +34,7 @@ RUN npx esbuild src/worker.ts \
   --external:@prisma/client \
   --outfile=.next/standalone/worker.cjs
 RUN mkdir -p .next/standalone/.next \
-  && cp -R .next/static .next/standalone/.next/static \
-  && cp -R public .next/standalone/public
+  && cp -R .next/static .next/standalone/.next/static
 
 FROM base AS runner
 ENV NODE_ENV=production
@@ -44,8 +43,10 @@ COPY --from=prisma-tool /opt/prisma-cli /opt/prisma-cli
 COPY prisma ./prisma
 COPY docker ./docker
 COPY --from=builder /app/.next/standalone ./.next/standalone
+COPY --from=builder /app/public ./.next/standalone/public
 COPY scripts/prepare-prisma-migrations.mjs ./.next/standalone/scripts/prepare-prisma-migrations.mjs
-RUN chmod +x ./docker/entrypoint.sh \
+RUN test -f ./.next/standalone/public/push-sw.js \
+  && chmod +x ./docker/entrypoint.sh \
   && rm -rf /app/.next/standalone/.next/cache
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
